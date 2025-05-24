@@ -1,73 +1,155 @@
-# Welcome to your Lovable project
+# 🌿 Pelis Agroforestry System (SRN Project)
 
-## Project info
+An integrated web-based management system for the **Nandi North Escarpment Community Forest Association (NNECFA)** to digitize and enhance the Participatory Environmental Land Use Management (PELIS) model. The system provides an efficient platform for plot management, crop reporting, monitoring, and short-term youth (STY) engagement.
 
-**URL**: https://lovable.dev/projects/662e62c7-15b9-4b4f-b009-6213d66f0758
+🔗 **Website Prototype:** [nandinorthescarpmentcfa.lovable.app](https://nandinorthescarpmentcfa.lovable.app)
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 📌 Key Features
 
-**Use Lovable**
+### 🔐 Role-Based User Management
+- **Community Members:** Register, apply for plots, and report crops  
+- **Forest Officers:** Monitor assigned plots and submit field records  
+- **NNECFA Officials:** Approve/reject plot applications, review reports  
+- **Admins:** Manage users, access logs, and oversee the system
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/662e62c7-15b9-4b4f-b009-6213d66f0758) and start prompting.
+### 🧾 Plot Application & Approval Workflow
+- Plot application submission by users  
+- Review and approval by authorized officials  
+- Notification of application status
 
-Changes made via Lovable will be committed automatically to this repo.
+### 🌱 Crop Reporting & Monitoring
+- Monthly/seasonal crop input by members  
+- GPS-tagged reports  
+- Forest officer verification and compliance logs
 
-**Use your preferred IDE**
+### 📍 GIS Integration
+- Interactive map using **Leaflet.js** for viewing and managing plot locations
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 📊 Dashboards & Reports
+- Real-time data visualization (e.g., active plots, reported crops, monitoring stats)  
+- Filterable, exportable reports for stakeholders
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 👷‍♂️ STY (Short-Term Youth) Engagement Module
+- Youth volunteers assigned to assist with plot verification, awareness, data gathering  
+- Activity tracking and digital recognition (badges/certificates)
 
-Follow these steps:
+### 📁 System Logs & Audit Trails
+- Every action is logged for transparency and traceability
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+---
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 🛠️ Tech Stack
 
-# Step 3: Install the necessary dependencies.
-npm i
+| Layer         | Technology                        |
+|---------------|-----------------------------------|
+| Frontend      | Vue.js + Tailwind CSS             |
+| Backend       | Laravel (PHP) / Django (Python)   |
+| Database      | MySQL / PostgreSQL                |
+| Mapping       | Leaflet.js + OpenStreetMap        |
+| Hosting       | cPanel (initial) → AWS/Heroku     |
+| Authentication| JWT-based with Role Access Control|
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+---
 
-**Edit a file directly in GitHub**
+## 🧱 Database Schema (Core Tables)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- `users` – Stores user data with roles  
+- `plots` – Plot details, coordinates, size, and status  
+- `applications` – Records of plot applications  
+- `crop_reports` – Crop submissions by members  
+- `monitoring_records` – Officer field notes and compliance status  
+- `system_logs` – Logs of user/system actions
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🔄 System Workflow Overview
 
-## What technologies are used for this project?
+1. **User Registration** → Role assignment  
+2. **Plot Application** → Approval/Rejection → Mapping  
+3. **Crop Reporting** → Monitoring by Officers  
+4. **Dashboards & Reports** → Export & Print  
+5. **Logs & Audit** → Admin View  
+6. **STY Module** → Youth Tasks & Impact Tracking  
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🚀 Getting Started (Developer Guide)
 
-## How can I deploy this project?
+### 1. Clone the repository
+```bash
+git clone https://github.com/your-org/pelis-agroforestry-system.git
+cd pelis-agroforestry-system
+2. Install dependencies
+Backend (Laravel):
 
-Simply open [Lovable](https://lovable.dev/projects/662e62c7-15b9-4b4f-b009-6213d66f0758) and click on Share -> Publish.
 
-## Can I connect a custom domain to my Lovable project?
+composer install
+Frontend:
 
-Yes, you can!
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+npm install && npm run dev
+3. Set up environment variables
+Copy .env.example to .env and configure database, API keys, etc.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+4. Run migrations
+
+php artisan migrate
+5. Start the development server
+
+php artisan serve
+✅ Roadmap
+ Plot Application Workflow
+
+ Crop Reporting Module
+
+ Role-Based Authentication
+
+ Leaflet Map Integration
+
+ Monitoring & Audit Trails
+
+ SMS Notification Integration
+
+ Mobile App Extension (future)
+
+ Machine Learning Crop Prediction (future)
+
+🤝 Contributing
+We welcome contributions from developers, STY members, and NNECFA partners.
+
+Fork this repository
+
+Create a feature branch
+
+
+git checkout -b feature/new-feature
+Commit your changes
+
+
+git commit -m 'Add new feature'
+Push to the branch
+
+
+git push origin feature/new-feature
+Create a pull request
+
+📄 License
+MIT License © 2025 [Your ALLAN KOGO / UEAB]
+
+📬 Contact
+Email: [kogoallan593@gmail.com]
+
+Phone/WhatsApp: +25475987277
+
+Website: https://nandinorthescarpmentcfa.lovable.app
+
+Empowering communities and conserving forests through technology.
+
+
+
+Let me know if you’d also like:
+- A downloadable PDF version
+- A `CONTRIBUTING.md` file
+- A setup video or diagram for onboarding developers
