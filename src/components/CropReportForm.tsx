@@ -1,358 +1,298 @@
 
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { Sprout, Calendar, Camera, TrendingUp } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CropReportFormProps {
   userRole: string;
 }
 
-const CropReportForm = ({ userRole }: CropReportFormProps) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
+interface CropType {
+  id: string;
+  name: string;
+  category: string;
+}
 
+interface Plot {
+  id: string;
+  name: string;
+  size: number;
+  location_description: string | null;
+}
+
+const CropReportForm = ({ userRole }: CropReportFormProps) => {
+  const { profile } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cropTypes, setCropTypes] = useState<CropType[]>([]);
+  const [userPlots, setUserPlots] = useState<Plot[]>([]);
   const [reportData, setReportData] = useState({
     plotId: "",
-    cropType: "",
+    cropTypeId: "",
     plantingDate: "",
     areaPlanted: "",
-    growthStage: "",
-    condition: "",
+    expectedHarvestDate: "",
     notes: "",
-    challenges: ""
   });
 
-  // Mock data for existing reports
-  const mockReports = [
-    {
-      id: "RPT-2024-001",
-      plotId: "P-2024-001",
-      cropType: "Maize & Indigenous Trees",
-      plantingDate: "2024-01-10",
-      submissionDate: "2024-01-25",
-      condition: "excellent",
-      growthStage: "vegetative"
-    },
-    {
-      id: "RPT-2024-002",
-      plotId: "P-2024-001",
-      cropType: "Beans & Coffee Seedlings",
-      plantingDate: "2024-01-15",
-      submissionDate: "2024-01-30",
-      condition: "good",
-      growthStage: "flowering"
-    },
-    {
-      id: "RPT-2024-003",
-      plotId: "P-2024-001",
-      cropType: "Napier Grass & Eucalyptus",
-      plantingDate: "2024-02-01",
-      submissionDate: "2024-02-15",
-      condition: "fair",
-      growthStage: "establishment"
-    }
-  ];
+  useEffect(() => {
+    const fetchCropTypes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("crop_types")
+          .select("id, name, category")
+          .order("name");
+
+        if (error) throw error;
+        setCropTypes(data || []);
+      } catch (error) {
+        console.error("Error fetching crop types:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load crop types. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    const fetchUserPlots = async () => {
+      if (!profile) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("plots")
+          .select("id, name, size, location_description")
+          .eq("assigned_to", profile.id)
+          .eq("status", "Active");
+
+        if (error) throw error;
+        setUserPlots(data || []);
+      } catch (error) {
+        console.error("Error fetching user plots:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load your plots. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchCropTypes();
+    if (profile) fetchUserPlots();
+  }, [profile]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setReportData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setReportData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    // Simulate API call
-    setTimeout(() => {
+    
+    if (!profile) {
       toast({
-        title: "Crop Report Submitted",
-        description: "Your crop report has been successfully submitted.",
+        title: "Authentication required",
+        description: "Please log in to submit a crop report.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (
+      !reportData.plotId ||
+      !reportData.cropTypeId ||
+      !reportData.plantingDate ||
+      !reportData.areaPlanted
+    ) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      const { data, error } = await supabase.from("crop_reports").insert({
+        user_id: profile.id,
+        plot_id: reportData.plotId,
+        crop_type_id: reportData.cropTypeId,
+        planting_date: reportData.plantingDate,
+        area_planted: parseFloat(reportData.areaPlanted),
+        expected_harvest_date: reportData.expectedHarvestDate || null,
+        notes: reportData.notes,
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Report submitted",
+        description: "Your crop report has been submitted successfully.",
       });
       
       // Reset form
       setReportData({
         plotId: "",
-        cropType: "",
+        cropTypeId: "",
         plantingDate: "",
         areaPlanted: "",
-        growthStage: "",
-        condition: "",
+        expectedHarvestDate: "",
         notes: "",
-        challenges: ""
       });
-      
+    } catch (error) {
+      console.error("Error submitting crop report:", error);
+      toast({
+        title: "Submission failed",
+        description: "There was a problem submitting your report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsSubmitting(false);
-    }, 2000);
-  };
-
-  const getConditionBadge = (condition: string) => {
-    switch (condition) {
-      case "excellent":
-        return <Badge className="bg-green-100 text-green-800 border-green-200">Excellent</Badge>;
-      case "good":
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Good</Badge>;
-      case "fair":
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Fair</Badge>;
-      case "poor":
-        return <Badge className="bg-red-100 text-red-800 border-red-200">Poor</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
-  if (userRole !== "Community Member") {
-    return (
-      <div className="space-y-6">
-        <Card className="border-emerald-200">
-          <CardHeader>
-            <CardTitle className="text-emerald-800 flex items-center">
-              <TrendingUp className="w-5 h-5 mr-2" />
-              Crop Reports Overview
-            </CardTitle>
-            <CardDescription>Monitor community crop reporting and performance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Card className="border-green-200 bg-green-50">
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-green-800">89</div>
-                  <p className="text-sm text-green-600">Total Reports</p>
-                </CardContent>
-              </Card>
-              <Card className="border-blue-200 bg-blue-50">
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-blue-800">76%</div>
-                  <p className="text-sm text-blue-600">Submission Rate</p>
-                </CardContent>
-              </Card>
-              <Card className="border-amber-200 bg-amber-50">
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-amber-800">12</div>
-                  <p className="text-sm text-amber-600">Overdue Reports</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-emerald-800">Recent Reports</h3>
-              {mockReports.map((report) => (
-                <div key={report.id} className="border border-emerald-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold text-emerald-800">{report.id}</h4>
-                    {getConditionBadge(report.condition)}
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <Label className="text-emerald-700">Plot ID</Label>
-                      <p className="text-emerald-800">{report.plotId}</p>
-                    </div>
-                    <div>
-                      <Label className="text-emerald-700">Crop Type</Label>
-                      <p className="text-emerald-800">{report.cropType}</p>
-                    </div>
-                    <div>
-                      <Label className="text-emerald-700">Planting Date</Label>
-                      <p className="text-emerald-800">{report.plantingDate}</p>
-                    </div>
-                    <div>
-                      <Label className="text-emerald-700">Growth Stage</Label>
-                      <p className="text-emerald-800 capitalize">{report.growthStage}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Crop Report Form */}
+      <h2 className="text-2xl font-bold text-emerald-800">Crop Reporting</h2>
+
       <Card className="border-emerald-200">
         <CardHeader>
-          <CardTitle className="text-emerald-800 flex items-center">
-            <Sprout className="w-5 h-5 mr-2" />
-            Submit Crop Report
-          </CardTitle>
-          <CardDescription>Report on your crop activities and plot conditions</CardDescription>
+          <CardTitle className="text-emerald-800">Submit Crop Report</CardTitle>
+          <CardDescription>
+            Record your planting activities and crop details.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="plotId">Plot ID</Label>
-                <Select value={reportData.plotId} onValueChange={(value) => setReportData({...reportData, plotId: value})}>
+          {userPlots.length > 0 ? (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="plotId">Select Plot</Label>
+                <Select
+                  value={reportData.plotId}
+                  onValueChange={(value) => handleSelectChange("plotId", value)}
+                  disabled={isSubmitting}
+                  required
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select your plot" />
+                    <SelectValue placeholder="Select a plot" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="P-2024-001">P-2024-001 (North Block A)</SelectItem>
-                    <SelectItem value="P-2024-002">P-2024-002 (South Block C)</SelectItem>
+                    {userPlots.map((plot) => (
+                      <SelectItem key={plot.id} value={plot.id}>
+                        {plot.name} ({plot.size} ha)
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div>
-                <Label htmlFor="cropType">Crop/Tree Type</Label>
-                <Input
-                  id="cropType"
-                  value={reportData.cropType}
-                  onChange={(e) => setReportData({...reportData, cropType: e.target.value})}
-                  placeholder="e.g., Maize, Beans, Indigenous Trees"
+              <div className="space-y-2">
+                <Label htmlFor="cropTypeId">Crop Type</Label>
+                <Select
+                  value={reportData.cropTypeId}
+                  onValueChange={(value) => handleSelectChange("cropTypeId", value)}
+                  disabled={isSubmitting}
                   required
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a crop type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cropTypes.map((crop) => (
+                      <SelectItem key={crop.id} value={crop.id}>
+                        {crop.name} ({crop.category})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="plantingDate">Planting Date</Label>
                 <Input
                   id="plantingDate"
+                  name="plantingDate"
                   type="date"
                   value={reportData.plantingDate}
-                  onChange={(e) => setReportData({...reportData, plantingDate: e.target.value})}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
               </div>
 
-              <div>
-                <Label htmlFor="areaPlanted">Area Planted (hectares)</Label>
+              <div className="space-y-2">
+                <Label htmlFor="areaPlanted">Area Planted (Hectares)</Label>
                 <Input
                   id="areaPlanted"
+                  name="areaPlanted"
                   type="number"
                   step="0.01"
+                  min="0.01"
+                  placeholder="e.g., 0.25"
                   value={reportData.areaPlanted}
-                  onChange={(e) => setReportData({...reportData, areaPlanted: e.target.value})}
-                  placeholder="0.25"
+                  onChange={handleChange}
+                  disabled={isSubmitting}
                   required
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="growthStage">Growth Stage</Label>
-                <Select value={reportData.growthStage} onValueChange={(value) => setReportData({...reportData, growthStage: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select growth stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="planting">Planting/Establishment</SelectItem>
-                    <SelectItem value="germination">Germination</SelectItem>
-                    <SelectItem value="vegetative">Vegetative Growth</SelectItem>
-                    <SelectItem value="flowering">Flowering</SelectItem>
-                    <SelectItem value="fruiting">Fruiting/Maturity</SelectItem>
-                    <SelectItem value="harvesting">Harvesting</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <Label htmlFor="expectedHarvestDate">Expected Harvest Date (Optional)</Label>
+                <Input
+                  id="expectedHarvestDate"
+                  name="expectedHarvestDate"
+                  type="date"
+                  value={reportData.expectedHarvestDate}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                />
               </div>
 
-              <div>
-                <Label htmlFor="condition">Overall Condition</Label>
-                <Select value={reportData.condition} onValueChange={(value) => setReportData({...reportData, condition: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Rate crop condition" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="excellent">Excellent</SelectItem>
-                    <SelectItem value="good">Good</SelectItem>
-                    <SelectItem value="fair">Fair</SelectItem>
-                    <SelectItem value="poor">Poor</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  placeholder="Additional information about this planting..."
+                  rows={3}
+                  value={reportData.notes}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                />
               </div>
-            </div>
 
-            <div>
-              <Label htmlFor="notes">Progress Notes</Label>
-              <Textarea
-                id="notes"
-                value={reportData.notes}
-                onChange={(e) => setReportData({...reportData, notes: e.target.value})}
-                placeholder="Describe the current state of your crops, any observations, maintenance activities..."
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="challenges">Challenges Faced</Label>
-              <Textarea
-                id="challenges"
-                value={reportData.challenges}
-                onChange={(e) => setReportData({...reportData, challenges: e.target.value})}
-                placeholder="Describe any pests, diseases, weather issues, or other challenges..."
-                rows={3}
-              />
-            </div>
-
-            <div className="border-2 border-dashed border-emerald-300 rounded-lg p-6 text-center">
-              <Camera className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
-              <p className="text-emerald-700 mb-2">Upload Photos (Optional)</p>
-              <p className="text-sm text-emerald-600 mb-4">Add photos of your crops to help with monitoring</p>
-              <Button type="button" variant="outline" className="border-emerald-200 text-emerald-700">
-                Choose Files
+              <Button
+                type="submit"
+                className="bg-emerald-600 hover:bg-emerald-700 w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Submitting..." : "Submit Crop Report"}
               </Button>
+            </form>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-amber-600 mb-4">
+                You don't have any active plots assigned to you.
+              </p>
+              <p className="text-emerald-700">
+                Please apply for a plot first or contact a Forest Officer.
+              </p>
             </div>
-
-            <Button 
-              type="submit" 
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Submitting Report..." : "Submit Crop Report"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* My Reports History */}
-      <Card className="border-emerald-200">
-        <CardHeader>
-          <CardTitle className="text-emerald-800 flex items-center">
-            <Calendar className="w-5 h-5 mr-2" />
-            My Report History
-          </CardTitle>
-          <CardDescription>View your previous crop reports and submissions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {mockReports.map((report) => (
-              <div key={report.id} className="border border-emerald-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-emerald-800">{report.id}</h4>
-                  {getConditionBadge(report.condition)}
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <Label className="text-emerald-700">Plot</Label>
-                    <p className="text-emerald-800">{report.plotId}</p>
-                  </div>
-                  <div>
-                    <Label className="text-emerald-700">Crop Type</Label>
-                    <p className="text-emerald-800">{report.cropType}</p>
-                  </div>
-                  <div>
-                    <Label className="text-emerald-700">Planted</Label>
-                    <p className="text-emerald-800">{report.plantingDate}</p>
-                  </div>
-                  <div>
-                    <Label className="text-emerald-700">Submitted</Label>
-                    <p className="text-emerald-800">{report.submissionDate}</p>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <Label className="text-emerald-700">Growth Stage</Label>
-                  <p className="text-emerald-800 capitalize">{report.growthStage}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

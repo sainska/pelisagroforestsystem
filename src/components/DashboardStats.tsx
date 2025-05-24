@@ -1,270 +1,227 @@
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { 
-  Users, 
-  MapPin, 
-  Sprout, 
-  FileText, 
-  TrendingUp, 
-  AlertTriangle,
-  Calendar,
-  CheckCircle
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { MapPin, FileText, AlertTriangle, Users, Sprout } from "lucide-react";
 
 interface DashboardStatsProps {
   userRole: string;
 }
 
 const DashboardStats = ({ userRole }: DashboardStatsProps) => {
-  const mockStats = {
-    totalPlots: 245,
-    activePlots: 189,
-    pendingApplications: 12,
-    totalMembers: 156,
-    cropReports: 89,
-    monitoringRecords: 67,
-    violations: 3,
-    compliance: 94
-  };
+  const { profile } = useAuth();
+  const [stats, setStats] = useState({
+    totalPlots: 0,
+    assignedPlots: 0,
+    availablePlots: 0,
+    pendingApplications: 0,
+    cropReports: 0,
+    monitoringRecords: 0,
+    violations: 0,
+    userCount: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const recentActivities = [
-    { id: 1, action: "New plot application", user: "Mary Chepkoech", time: "2 hours ago", type: "application" },
-    { id: 2, action: "Crop report submitted", user: "James Kiprop", time: "4 hours ago", type: "report" },
-    { id: 3, action: "Monitoring visit completed", user: "Officer Kimani", time: "1 day ago", type: "monitoring" },
-    { id: 4, action: "Plot allocation approved", user: "Grace Wanjiku", time: "2 days ago", type: "approval" },
-  ];
+  useEffect(() => {
+    const fetchStats = async () => {
+      setIsLoading(true);
+      
+      try {
+        // Fetch plots statistics
+        const { data: plotsData, error: plotsError } = await supabase
+          .from('plots')
+          .select('status, id', { count: 'exact' });
+          
+        if (plotsError) throw plotsError;
+        
+        const availablePlots = plotsData?.filter(plot => plot.status === 'Available').length || 0;
+        const assignedPlots = plotsData?.filter(plot => plot.status === 'Assigned' || plot.status === 'Active').length || 0;
+        
+        // Fetch applications count
+        const { count: pendingApplications, error: applicationsError } = await supabase
+          .from('plot_applications')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'Pending');
+          
+        if (applicationsError) throw applicationsError;
+        
+        // Fetch crop reports
+        let cropReportsQuery = supabase.from('crop_reports').select('*', { count: 'exact', head: true });
+        if (profile?.role === 'Community Member') {
+          cropReportsQuery = cropReportsQuery.eq('user_id', profile.id);
+        }
+        const { count: cropReports, error: cropReportsError } = await cropReportsQuery;
+        if (cropReportsError) throw cropReportsError;
+        
+        // Fetch monitoring records
+        let monitoringQuery = supabase.from('monitoring_records').select('*', { count: 'exact', head: true });
+        if (profile?.role === 'Forest Officer') {
+          monitoringQuery = monitoringQuery.eq('officer_id', profile.id);
+        }
+        const { count: monitoringRecords, error: monitoringError } = await monitoringQuery;
+        if (monitoringError) throw monitoringError;
+
+        // Fetch violations
+        const { count: violations, error: violationsError } = await supabase
+          .from('violations')
+          .select('*', { count: 'exact', head: true })
+          .eq('resolved', false);
+        if (violationsError) throw violationsError;
+        
+        // Fetch user count (admin only)
+        let userCount = 0;
+        if (profile?.role === 'Admin' || profile?.role === 'NNECFA Official') {
+          const { count, error: userError } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true });
+            
+          if (userError) throw userError;
+          userCount = count || 0;
+        }
+        
+        setStats({
+          totalPlots: plotsData?.length || 0,
+          assignedPlots,
+          availablePlots,
+          pendingApplications: pendingApplications || 0,
+          cropReports: cropReports || 0,
+          monitoringRecords: monitoringRecords || 0,
+          violations: violations || 0,
+          userCount
+        });
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (profile) {
+      fetchStats();
+    }
+  }, [profile]);
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 p-4">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <Card key={i} className="border-emerald-200 opacity-60">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-emerald-800 text-lg">Loading...</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-emerald-700">-</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-emerald-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-700">Total Plots</CardTitle>
-            <MapPin className="h-4 w-4 text-emerald-600" />
+      <h2 className="text-2xl font-bold text-emerald-800">Dashboard Overview</h2>
+      
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="border-emerald-200 hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-emerald-800 text-lg flex items-center">
+              <MapPin className="w-5 h-5 mr-2 text-emerald-600" />
+              Total Plots
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-800">{mockStats.totalPlots}</div>
-            <p className="text-xs text-emerald-600">
-              +12% from last month
+            <div className="text-3xl font-bold text-emerald-700">{stats.totalPlots}</div>
+            <p className="text-emerald-600 text-sm mt-1">
+              {stats.assignedPlots} assigned, {stats.availablePlots} available
             </p>
           </CardContent>
         </Card>
-
-        <Card className="border-emerald-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-700">Active Plots</CardTitle>
-            <Sprout className="h-4 w-4 text-emerald-600" />
+        
+        {profile?.role !== 'Community Member' && (
+          <Card className="border-emerald-200 hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-emerald-800 text-lg flex items-center">
+                <FileText className="w-5 h-5 mr-2 text-emerald-600" />
+                Pending Applications
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-emerald-700">{stats.pendingApplications}</div>
+              <p className="text-emerald-600 text-sm mt-1">
+                Awaiting review
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        
+        <Card className="border-emerald-200 hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-emerald-800 text-lg flex items-center">
+              <Sprout className="w-5 h-5 mr-2 text-emerald-600" />
+              Crop Reports
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-800">{mockStats.activePlots}</div>
-            <p className="text-xs text-emerald-600">
-              77% of total plots
+            <div className="text-3xl font-bold text-emerald-700">{stats.cropReports}</div>
+            <p className="text-emerald-600 text-sm mt-1">
+              {profile?.role === 'Community Member' ? 'Your reports' : 'Total reports'}
             </p>
           </CardContent>
         </Card>
-
-        <Card className="border-emerald-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-700">Community Members</CardTitle>
-            <Users className="h-4 w-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-800">{mockStats.totalMembers}</div>
-            <p className="text-xs text-emerald-600">
-              +8 new this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-emerald-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-700">Compliance Rate</CardTitle>
-            <CheckCircle className="h-4 w-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-800">{mockStats.compliance}%</div>
-            <p className="text-xs text-emerald-600">
-              +2% improvement
-            </p>
-          </CardContent>
-        </Card>
+        
+        {(profile?.role === 'Forest Officer' || profile?.role === 'NNECFA Official' || profile?.role === 'Admin') && (
+          <Card className="border-emerald-200 hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-emerald-800 text-lg flex items-center">
+                <FileText className="w-5 h-5 mr-2 text-emerald-600" />
+                Monitoring Records
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-emerald-700">{stats.monitoringRecords}</div>
+              <p className="text-emerald-600 text-sm mt-1">
+                {profile?.role === 'Forest Officer' ? 'Your records' : 'Total records'}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        
+        {(profile?.role === 'Forest Officer' || profile?.role === 'NNECFA Official' || profile?.role === 'Admin') && (
+          <Card className="border-emerald-200 hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-emerald-800 text-lg flex items-center">
+                <AlertTriangle className="w-5 h-5 mr-2 text-amber-600" />
+                Open Violations
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-amber-600">{stats.violations}</div>
+              <p className="text-emerald-600 text-sm mt-1">
+                Unresolved issues
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        
+        {(profile?.role === 'NNECFA Official' || profile?.role === 'Admin') && (
+          <Card className="border-emerald-200 hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-emerald-800 text-lg flex items-center">
+                <Users className="w-5 h-5 mr-2 text-emerald-600" />
+                Total Users
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-emerald-700">{stats.userCount}</div>
+              <p className="text-emerald-600 text-sm mt-1">
+                Registered in the system
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
-
-      {/* Role-specific Stats */}
-      {userRole === "Community Member" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-amber-200 bg-amber-50">
-            <CardHeader>
-              <CardTitle className="text-amber-800">My Applications</CardTitle>
-              <CardDescription>Plot allocation requests</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-amber-800">2</div>
-              <div className="flex gap-2 mt-2">
-                <Badge variant="outline" className="text-green-700 border-green-200">1 Approved</Badge>
-                <Badge variant="outline" className="text-yellow-700 border-yellow-200">1 Pending</Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-green-200 bg-green-50">
-            <CardHeader>
-              <CardTitle className="text-green-800">My Plots</CardTitle>
-              <CardDescription>Allocated forest plots</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-800">1</div>
-              <p className="text-sm text-green-600 mt-2">Plot ID: P-2024-001</p>
-              <p className="text-sm text-green-600">Size: 0.5 hectares</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-blue-200 bg-blue-50">
-            <CardHeader>
-              <CardTitle className="text-blue-800">Crop Reports</CardTitle>
-              <CardDescription>Submitted this quarter</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-800">4</div>
-              <p className="text-sm text-blue-600 mt-2">Next due: Jan 15, 2025</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {(userRole === "Forest Officer" || userRole === "NNECFA Official") && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-orange-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-orange-700">Pending Applications</CardTitle>
-              <FileText className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-800">{mockStats.pendingApplications}</div>
-              <p className="text-xs text-orange-600">
-                Requires review
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-blue-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-blue-700">Crop Reports</CardTitle>
-              <Sprout className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-800">{mockStats.cropReports}</div>
-              <p className="text-xs text-blue-600">
-                This quarter
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-purple-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-purple-700">Monitoring Records</CardTitle>
-              <Calendar className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-800">{mockStats.monitoringRecords}</div>
-              <p className="text-xs text-purple-600">
-                Site visits completed
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-red-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-red-700">Violations</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-800">{mockStats.violations}</div>
-              <p className="text-xs text-red-600">
-                Requires attention
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Recent Activities */}
-      <Card className="border-emerald-200">
-        <CardHeader>
-          <CardTitle className="text-emerald-800">Recent Activities</CardTitle>
-          <CardDescription>Latest system activities and updates</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between border-b border-emerald-100 pb-3">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-2 h-2 rounded-full ${
-                    activity.type === 'application' ? 'bg-orange-400' :
-                    activity.type === 'report' ? 'bg-blue-400' :
-                    activity.type === 'monitoring' ? 'bg-purple-400' :
-                    'bg-green-400'
-                  }`} />
-                  <div>
-                    <p className="text-sm font-medium text-emerald-800">{activity.action}</p>
-                    <p className="text-xs text-emerald-600">by {activity.user}</p>
-                  </div>
-                </div>
-                <p className="text-xs text-emerald-500">{activity.time}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Quick Actions */}
-      <Card className="border-emerald-200">
-        <CardHeader>
-          <CardTitle className="text-emerald-800">Quick Actions</CardTitle>
-          <CardDescription>Common tasks and shortcuts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {userRole === "Community Member" && (
-              <>
-                <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-                  <MapPin className="w-4 h-4 mr-2" />
-                  Apply for Plot
-                </Button>
-                <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-                  <Sprout className="w-4 h-4 mr-2" />
-                  Submit Crop Report
-                </Button>
-              </>
-            )}
-            
-            {(userRole === "Forest Officer" || userRole === "NNECFA Official") && (
-              <>
-                <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Review Applications
-                </Button>
-                <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Schedule Monitoring
-                </Button>
-              </>
-            )}
-            
-            <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              View Reports
-            </Button>
-            <Button variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-              <Users className="w-4 h-4 mr-2" />
-              Community Directory
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

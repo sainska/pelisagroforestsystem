@@ -1,249 +1,258 @@
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface AuthModalProps {
+type AuthModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (user: any) => void;
-}
+  onLogin: (userData: any) => void;
+};
 
 const AuthModal = ({ isOpen, onClose, onLogin }: AuthModalProps) => {
+  const [activeTab, setActiveTab] = useState("login");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [registerIdNumber, setRegisterIdNumber] = useState("");
+  const [registerPhone, setRegisterPhone] = useState("");
 
-  const [loginData, setLoginData] = useState({
-    email: "",
-    password: ""
-  });
-
-  const [registerData, setRegisterData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    idNumber: "",
-    role: "",
-    password: "",
-    confirmPassword: ""
-  });
+  const { signIn, signUp } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      const mockUser = {
-        id: 1,
-        name: "John Wanjiku",
-        email: loginData.email,
-        phone: "+254712345678",
-        idNumber: "12345678",
-        role: "Community Member"
-      };
-
-      onLogin(mockUser);
+    
+    if (!loginEmail || !loginPassword) {
       toast({
-        title: "Login Successful",
-        description: "Welcome to the Pelis Agroforest System!",
+        title: "Missing fields",
+        description: "Please provide both email and password.",
+        variant: "destructive",
       });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const { data, error } = await signIn(loginEmail, loginPassword);
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data?.user) {
+        onLogin({
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.user_metadata.name || data.user.email,
+          role: data.user.user_metadata.role || "Community Member",
+          idNumber: data.user.user_metadata.idNumber || "",
+        });
+        
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${data.user.user_metadata.name || data.user.email}!`,
+        });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast({
+        title: "Login failed",
+        description: "Invalid email or password. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (registerData.password !== registerData.confirmPassword) {
+    if (!registerName || !registerEmail || !registerPassword) {
       toast({
-        title: "Password Mismatch",
-        description: "Please ensure passwords match.",
-        variant: "destructive"
+        title: "Missing fields",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
       });
       return;
     }
-
+    
     setIsLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      const newUser = {
-        id: Date.now(),
-        name: registerData.name,
-        email: registerData.email,
-        phone: registerData.phone,
-        idNumber: registerData.idNumber,
-        role: registerData.role
-      };
-
-      onLogin(newUser);
+    
+    try {
+      const { data, error } = await signUp(
+        registerEmail,
+        registerPassword,
+        {
+          name: registerName,
+          role: "Community Member",
+          phone: registerPhone,
+          idNumber: registerIdNumber,
+        }
+      );
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data.user) {
+        toast({
+          title: "Registration successful",
+          description: "Your account has been created. You can now log in.",
+        });
+        
+        // Reset form and switch to login tab
+        setRegisterName("");
+        setRegisterEmail("");
+        setRegisterPassword("");
+        setRegisterIdNumber("");
+        setRegisterPhone("");
+        setActiveTab("login");
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
       toast({
-        title: "Registration Successful",
-        description: "Your account has been created successfully!",
+        title: "Registration failed",
+        description: "There was a problem creating your account. Please try again.",
+        variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md mx-auto">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="text-emerald-800">Access Your Account</DialogTitle>
+          <DialogTitle className="text-emerald-800">
+            Welcome to Pelis Agroforest System
+          </DialogTitle>
           <DialogDescription>
-            Login or register to access the Pelis Agroforest System
+            Sign in to your account or create a new one to access forest management features.
           </DialogDescription>
         </DialogHeader>
-
-        <Tabs defaultValue="login" className="w-full">
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="register">Register</TabsTrigger>
           </TabsList>
-
+          
           <TabsContent value="login">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg text-emerald-800">Welcome Back</CardTitle>
-                <CardDescription>Enter your credentials to continue</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={loginData.email}
-                      onChange={(e) => setLoginData({...loginData, email: e.target.value})}
-                      placeholder="your.email@example.com"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={loginData.password}
-                      onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                      placeholder="Enter your password"
-                      required
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-emerald-600 hover:bg-emerald-700"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Signing In..." : "Sign In"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            <form onSubmit={handleLogin} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">Email</Label>
+                <Input 
+                  id="login-email" 
+                  type="email" 
+                  value={loginEmail} 
+                  onChange={(e) => setLoginEmail(e.target.value)} 
+                  placeholder="you@example.com"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="login-password">Password</Label>
+                <Input 
+                  id="login-password" 
+                  type="password" 
+                  value={loginPassword} 
+                  onChange={(e) => setLoginPassword(e.target.value)} 
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <DialogFooter>
+                <Button 
+                  type="submit"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Logging in..." : "Login"}
+                </Button>
+              </DialogFooter>
+            </form>
           </TabsContent>
-
+          
           <TabsContent value="register">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg text-emerald-800">Create Account</CardTitle>
-                <CardDescription>Join the NNECFA community today</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      value={registerData.name}
-                      onChange={(e) => setRegisterData({...registerData, name: e.target.value})}
-                      placeholder="John Wanjiku"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="reg-email">Email</Label>
-                    <Input
-                      id="reg-email"
-                      type="email"
-                      value={registerData.email}
-                      onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
-                      placeholder="your.email@example.com"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      value={registerData.phone}
-                      onChange={(e) => setRegisterData({...registerData, phone: e.target.value})}
-                      placeholder="+254712345678"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="idNumber">ID Number</Label>
-                    <Input
-                      id="idNumber"
-                      value={registerData.idNumber}
-                      onChange={(e) => setRegisterData({...registerData, idNumber: e.target.value})}
-                      placeholder="12345678"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="role">Role</Label>
-                    <Select value={registerData.role} onValueChange={(value) => setRegisterData({...registerData, role: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Community Member">Community Member</SelectItem>
-                        <SelectItem value="Forest Officer">Forest Officer</SelectItem>
-                        <SelectItem value="NNECFA Official">NNECFA Official</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="reg-password">Password</Label>
-                    <Input
-                      id="reg-password"
-                      type="password"
-                      value={registerData.password}
-                      onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
-                      placeholder="Create a strong password"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      value={registerData.confirmPassword}
-                      onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
-                      placeholder="Repeat your password"
-                      required
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-emerald-600 hover:bg-emerald-700"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Creating Account..." : "Create Account"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            <form onSubmit={handleRegister} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="register-name">Full Name</Label>
+                <Input 
+                  id="register-name" 
+                  value={registerName} 
+                  onChange={(e) => setRegisterName(e.target.value)} 
+                  placeholder="John Doe"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-email">Email</Label>
+                <Input 
+                  id="register-email" 
+                  type="email" 
+                  value={registerEmail} 
+                  onChange={(e) => setRegisterEmail(e.target.value)} 
+                  placeholder="you@example.com"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-password">Password</Label>
+                <Input 
+                  id="register-password" 
+                  type="password" 
+                  value={registerPassword} 
+                  onChange={(e) => setRegisterPassword(e.target.value)} 
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-id-number">ID Number</Label>
+                <Input 
+                  id="register-id-number" 
+                  value={registerIdNumber} 
+                  onChange={(e) => setRegisterIdNumber(e.target.value)} 
+                  placeholder="Optional"
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-phone">Phone Number</Label>
+                <Input 
+                  id="register-phone" 
+                  value={registerPhone} 
+                  onChange={(e) => setRegisterPhone(e.target.value)} 
+                  placeholder="Optional"
+                  disabled={isLoading}
+                />
+              </div>
+              <DialogFooter>
+                <Button 
+                  type="submit"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Creating account..." : "Create Account"}
+                </Button>
+              </DialogFooter>
+            </form>
           </TabsContent>
         </Tabs>
       </DialogContent>
