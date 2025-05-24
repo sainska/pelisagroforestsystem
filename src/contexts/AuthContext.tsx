@@ -94,22 +94,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string,
     password: string,
     metadata: { name: string; phone: string; id_number: string; location: string }
-  ) => {
+  ): Promise<AuthResponse> => {
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
-        password,
-        options: {
-          data: metadata,
-        },
+        password
       });
 
-      if (error) {
-        console.error('Error signing up:', error);
-        throw error;
+      if (signUpError) {
+        console.error('Error signing up:', signUpError);
+        return { data: null, error: signUpError };
       }
 
-      return { data, error: null };
+      const userId = signUpData.user?.id;
+      if (!userId) {
+        throw new Error('User ID not returned from signUp');
+      }
+
+      // Insert metadata into profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          name: metadata.name,
+          phone: metadata.phone,
+          id_number: metadata.id_number,
+          location: metadata.location
+        });
+
+      if (profileError) {
+        console.error('Error inserting profile:', profileError);
+        return { data: null, error: profileError };
+      }
+
+      return { data: signUpData, error: null };
     } catch (error) {
       console.error('Sign-up failed:', error);
       return { data: null, error: error as AuthError };
@@ -183,7 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     profile,
     session,
