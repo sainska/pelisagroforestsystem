@@ -13,11 +13,11 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   signUp: (
-    email: string, 
-    password: string, 
-    metadata: { name: string; role?: string; phone?: string; idNumber?: string }
-  ) => Promise<{ data: AuthResponse | null; error: AuthError | null }>;
-  signIn: (email: string, password: string) => Promise<{ data: AuthResponse | null; error: AuthError | null }>;
+    email: string,
+    password: string,
+    metadata: { name: string; phone: string; id_number: string; location: string }
+  ) => Promise<AuthResponse>;
+  signIn: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
@@ -70,18 +70,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user || null);
 
         if (session?.user) {
-          const { data: profileData, error: profileError } = await supabase
+          const { data: profileData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
 
-          if (profileError) {
-            console.error('Error fetching profile on auth change:', profileError);
-            setProfile(null);
-          } else {
-            setProfile(profileData);
-          }
+          setProfile(profileData || null);
         } else {
           setProfile(null);
         }
@@ -98,10 +93,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (
     email: string,
     password: string,
-    metadata: { name: string; role?: string; phone?: string; idNumber?: string }
-  ): Promise<{ data: AuthResponse | null; error: AuthError | null }> => {
+    metadata: { name: string; phone: string; id_number: string; location: string }
+  ) => {
     try {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -109,57 +104,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
 
-      if (signUpError) throw signUpError;
-
-      if (signUpData?.user?.id) {
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: signUpData.user.id,
-          name: metadata.name,
-          email,
-          phone: metadata.phone ?? null,
-          id_number: metadata.idNumber ?? null,
-        });
-
-        if (profileError) throw profileError;
+      if (error) {
+        console.error('Error signing up:', error);
+        throw error;
       }
 
-      return { data: signUpData, error: null };
+      return { data, error: null };
     } catch (error) {
-      console.error('Error signing up:', error);
+      console.error('Sign-up failed:', error);
       return { data: null, error: error as AuthError };
     }
   };
 
-  const signIn = async (
-    email: string,
-    password: string
-  ): Promise<{ data: AuthResponse | null; error: AuthError | null }> => {
+  const signIn = async (email: string, password: string) => {
     try {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) throw signInError;
-
-      if (signInData?.user?.id) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', signInData.user.id)
-          .single();
-
-        if (profileError) {
-          console.error('Error fetching profile after sign in:', profileError);
-        } else {
-          setProfile(profileData);
-        }
-      }
-
-      return { data: signInData, error: null };
+      const result = await supabase.auth.signInWithPassword({ email, password });
+      return result;
     } catch (error) {
       console.error('Error signing in:', error);
-      return { data: null, error: error as AuthError };
+      throw error;
     }
   };
 
@@ -203,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
-      setProfile((prev) => (prev ? { ...prev, ...data } : null));
+      setProfile(prev => (prev ? { ...prev, ...data } : null));
 
       toast({
         title: 'Profile updated',
@@ -246,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
