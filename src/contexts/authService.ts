@@ -1,53 +1,54 @@
-// src/services/authService.ts
-import { supabase } from '@/lib/supabaseClient'; // your Supabase client setup
-
-type Metadata = {
-  name: string;
-  phone: string;
-  national_id: string;
-  location: string;
-  id_document_url?: string;
-  face_photo_url?: string;
-};
+import { supabase } from '@/lib/supabaseClient'; // adjust path as needed
 
 export const authService = {
-  signUp: async (email: string, password: string, metadata: Metadata) => {
-    // 1. Create user in Supabase auth
+  signUp: async (
+    email: string,
+    password: string,
+    metadata: {
+      name: string;
+      phone: string;
+      national_id: string;
+      location: string;
+      id_document_url?: string;
+      face_photo_url?: string;
+    }
+  ) => {
+    // 1. Sign up user with metadata inside options.data
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: metadata,  // user_metadata JSON column in auth.users table
+      },
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error during signUp:', error);
+      throw error;
+    }
 
-    if (!data.user) throw new Error('User signup failed');
+    // 2. Insert user profile in 'profiles' table using returned user ID
+    const userId = data.user?.id;
+    if (!userId) {
+      throw new Error('User ID not returned after signup');
+    }
 
-    // 2. Save user metadata/profile to 'profiles' table
     const { error: profileError } = await supabase
       .from('profiles')
-      .insert({
-        id: data.user.id, // use auth user id as PK in profiles table
-        email,
-        name: metadata.name,
-        phone: metadata.phone,
-        national_id: metadata.national_id,
-        location: metadata.location,
-        id_document_url: metadata.id_document_url || null,
-        face_photo_url: metadata.face_photo_url || null,
-      });
+      .insert([{ id: userId, ...metadata }]);
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      console.error('Error inserting profile:', profileError);
+      throw profileError;
+    }
 
-    return data.user;
+    return data;
   },
 
   signIn: async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    return data.session;
+    return data;
   },
 
   signOut: async (navigate: (path: string) => void) => {
@@ -63,46 +64,29 @@ export const authService = {
   },
 
   updateProfile: async (data: any, userId: string, setProfile: (p: any) => void) => {
+    // Update in profiles table
     const { error } = await supabase.from('profiles').update(data).eq('id', userId);
     if (error) throw error;
-    // Optionally fetch updated profile and update state
-    const { data: updatedProfile } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (updatedProfile) setProfile(updatedProfile);
-    return updatedProfile;
+
+    // Optionally refresh local profile state
+    setProfile((prev: any) => ({ ...prev, ...data }));
   },
 
   uploadDocument: async (file: File, type: 'id' | 'face', userId: string) => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${type}_photo_${userId}.${fileExt}`;
-    const filePath = `documents/${userId}/${fileName}`;
-
-    const { data, error } = await supabase.storage.from('user-documents').upload(filePath, file, {
-      upsert: true,
-    });
-
+    const bucket = 'user-documents'; // adjust your bucket name
+    const filePath = `${userId}/${type}-${Date.now()}-${file.name}`;
+    const { data, error } = await supabase.storage.from(bucket).upload(filePath, file);
     if (error) throw error;
 
-    const { publicURL, error: urlError } = supabase.storage.from('user-documents').getPublicUrl(filePath);
-    if (urlError) throw urlError;
-
-    return publicURL;
+    const url = supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl;
+    return url;
   },
 
   submitPayment: async (mpesaCode: string, phoneNumber: string, userId: string) => {
-    // Implement payment logic here (e.g., insert payment record in DB)
-    // For example:
-    const { error } = await supabase.from('payments').insert({
-      user_id: userId,
-      mpesa_code: mpesaCode,
-      phone_number: phoneNumber,
-      paid_at: new Date(),
-    });
-    if (error) throw error;
-    return true;
+    // Implement payment logic here or call your API
   },
 
   checkAccountStatus: async (user: any, profile: any) => {
-    // Implement your logic here to check status
-    return { active: true }; // example
+    // Implement your logic here
   },
 };
