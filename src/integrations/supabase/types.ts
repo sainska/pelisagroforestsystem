@@ -502,50 +502,33 @@ export type Database = {
       }
       profiles: {
         Row: {
-          avatar_url: string | null
           created_at: string
           email: string
-          farm_group_id: string | null
           id: string
           id_number: string | null
           name: string
           phone: string | null
-          role: Database["public"]["Enums"]["user_role"]
           updated_at: string
         }
         Insert: {
-          avatar_url?: string | null
           created_at?: string
           email: string
-          farm_group_id?: string | null
           id: string
           id_number?: string | null
           name: string
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
         Update: {
-          avatar_url?: string | null
           created_at?: string
           email?: string
-          farm_group_id?: string | null
           id?: string
           id_number?: string | null
           name?: string
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_farm_group_id_fkey"
-            columns: ["farm_group_id"]
-            isOneToOne: false
-            referencedRelation: "farm_groups"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       system_logs: {
         Row: {

@@ -3,8 +3,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sprout, MapPin, FileText } from "lucide-react";
-import AuthModal from "@/components/AuthModal";
+import { Sprout, MapPin, FileText, ShoppingCart, Users, Shield } from "lucide-react";
+import EnhancedAuthModal from "@/components/EnhancedAuthModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
@@ -44,34 +44,23 @@ const Index = () => {
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-bold text-emerald-800 mb-6">
-            Digital Forest Management for Sustainable Communities
+            Advanced Digital Forest Management Platform
           </h2>
           <p className="text-lg text-emerald-700 mb-8 leading-relaxed">
-            The Pelis Agroforest System empowers the Nandi North Escarpment Community Forest Association 
-            with modern tools for plot allocation, crop monitoring, and transparent forest governance.
+            Join the enhanced Pelis Agroforest System with secure registration, payment verification, 
+            marketplace integration, and comprehensive forest management tools for sustainable communities.
           </p>
           
           <div className="grid md:grid-cols-3 gap-6 mt-12">
             <Card className="border-emerald-200 hover:shadow-lg transition-shadow">
               <CardHeader>
                 <MapPin className="w-12 h-12 text-emerald-600 mb-2" />
-                <CardTitle className="text-emerald-800">Plot Management</CardTitle>
+                <CardTitle className="text-emerald-800">Smart Plot Management</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-emerald-700">
-                  Apply for forest plots, track allocation status, and manage your assigned land digitally.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-emerald-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <Sprout className="w-12 h-12 text-emerald-600 mb-2" />
-                <CardTitle className="text-emerald-800">Crop Monitoring</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-emerald-700">
-                  Report crop activities, track growth progress, and ensure sustainable farming practices.
+                  Apply for plots with GPS tracking, view applicant counts, receive PDF permits 
+                  with QR codes, and manage assignments digitally.
                 </p>
               </CardContent>
             </Card>
@@ -79,12 +68,61 @@ const Index = () => {
             <Card className="border-emerald-200 hover:shadow-lg transition-shadow">
               <CardHeader>
                 <FileText className="w-12 h-12 text-emerald-600 mb-2" />
-                <CardTitle className="text-emerald-800">Transparent Reporting</CardTitle>
+                <CardTitle className="text-emerald-800">Advanced Reporting</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-emerald-700">
-                  Generate detailed reports, maintain audit trails, and ensure accountability in forest management.
+                  Submit detailed crop reports with photos, receive performance points, 
+                  and benefit from officer reviews and monitoring assessments.
                 </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-emerald-200 hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <ShoppingCart className="w-12 h-12 text-emerald-600 mb-2" />
+                <CardTitle className="text-emerald-800">Integrated Marketplace</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-emerald-700">
+                  Buy and sell farm products, tools, and seedlings with photo uploads, 
+                  trust scoring, and community reviews.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Enhanced Features */}
+          <div className="grid md:grid-cols-2 gap-6 mt-12">
+            <Card className="border-blue-200 hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <Shield className="w-12 h-12 text-blue-600 mb-2" />
+                <CardTitle className="text-blue-800">Secure Registration</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="text-blue-700 text-left space-y-2">
+                  <li>• National ID verification with document upload</li>
+                  <li>• Face photo validation for security</li>
+                  <li>• M-Pesa payment integration (Ksh 300)</li>
+                  <li>• Email verification workflow</li>
+                  <li>• Officer approval requirement</li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="border-purple-200 hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <Users className="w-12 h-12 text-purple-600 mb-2" />
+                <CardTitle className="text-purple-800">Community Features</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="text-purple-700 text-left space-y-2">
+                  <li>• Real-time messaging and announcements</li>
+                  <li>• Conflict resolution system</li>
+                  <li>• Trust scoring and community reviews</li>
+                  <li>• Performance tracking and rewards</li>
+                  <li>• Role-based access control</li>
+                </ul>
               </CardContent>
             </Card>
           </div>
@@ -95,16 +133,19 @@ const Index = () => {
               onClick={() => setIsAuthOpen(true)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 text-lg"
             >
-              Get Started Today
+              Start Your Journey Today
             </Button>
+            <p className="text-emerald-600 text-sm mt-4">
+              Secure • Verified • Community-Driven
+            </p>
           </div>
         </div>
       </div>
 
-      <AuthModal 
+      <EnhancedAuthModal 
         isOpen={isAuthOpen} 
         onClose={() => setIsAuthOpen(false)}
-        onLogin={() => navigate('/dashboard')}
+        onSuccess={() => navigate('/dashboard')}
       />
     </div>
   );

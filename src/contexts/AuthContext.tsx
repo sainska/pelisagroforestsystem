@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
@@ -15,12 +16,27 @@ interface AuthContextType {
   signUp: (
     email: string,
     password: string,
-    metadata: { name: string; phone: string; id_number: string; location: string }
+    metadata: { 
+      name: string; 
+      phone: string; 
+      national_id: string; 
+      location: string;
+      id_document_url?: string;
+      face_photo_url?: string;
+    }
   ) => Promise<AuthResponse>;
   signIn: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
+  uploadDocument: (file: File, type: 'id' | 'face') => Promise<string>;
+  submitPayment: (mpesaCode: string, phoneNumber: string) => Promise<void>;
+  checkAccountStatus: () => Promise<{
+    isApproved: boolean;
+    paymentVerified: boolean;
+    emailVerified: boolean;
+    faceVerified: boolean;
+  }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,18 +81,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setData();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user || null);
 
         if (session?.user) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+          // Fetch profile data when user signs in
+          setTimeout(async () => {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
 
-          setProfile(profileData || null);
+            setProfile(profileData || null);
+          }, 0);
         } else {
           setProfile(null);
         }
@@ -93,44 +113,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (
     email: string,
     password: string,
-    metadata: { name: string; phone: string; id_number: string; location: string }
+    metadata: { 
+      name: string; 
+      phone: string; 
+      national_id: string; 
+      location: string;
+      id_document_url?: string;
+      face_photo_url?: string;
+    }
   ): Promise<AuthResponse> => {
     try {
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
-        password
+        password,
+        options: {
+          data: metadata
+        }
       });
 
       if (signUpError) {
         console.error('Error signing up:', signUpError);
-        return { data: null, error: signUpError };
-      }
-
-      const userId = signUpData.user?.id;
-      if (!userId) {
-        throw new Error('User ID not returned from signUp');
-      }
-
-      // Insert metadata into profiles table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: userId,
-          name: metadata.name,
-          phone: metadata.phone,
-          id_number: metadata.id_number,
-          location: metadata.location
-        });
-
-      if (profileError) {
-        console.error('Error inserting profile:', profileError);
-        return { data: null, error: profileError };
+        return { data: { user: null, session: null }, error: signUpError };
       }
 
       return { data: signUpData, error: null };
     } catch (error) {
       console.error('Sign-up failed:', error);
-      return { data: null, error: error as AuthError };
+      return { data: { user: null, session: null }, error: error as AuthError };
     }
   };
 
@@ -177,14 +186,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (!user) throw new Error('User not authenticated');
 
+      // Prevent updating national_id
+      const { national_id, ...updateData } = data;
+
       const { error } = await supabase
         .from('profiles')
-        .update(data)
+        .update(updateData)
         .eq('id', user.id);
 
       if (error) throw error;
 
-      setProfile(prev => (prev ? { ...prev, ...data } : null));
+      setProfile(prev => (prev ? { ...prev, ...updateData } : null));
 
       toast({
         title: 'Profile updated',
@@ -201,6 +213,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const uploadDocument = async (file: File, type: 'id' | 'face'): Promise<string> => {
+    try {
+      if (!user) throw new Error('User not authenticated');
+
+      const fileName = `${user.id}/${type}_${Date.now()}.${file.name.split('.').pop()}`;
+      
+      // For now, return a placeholder URL since we don't have storage configured
+      // In a real implementation, you would upload to Supabase Storage
+      const mockUrl = `https://placeholder.com/${fileName}`;
+      
+      // Update profile with document URL
+      const updateField = type === 'id' ? 'id_document_url' : 'face_photo_url';
+      await updateProfile({ [updateField]: mockUrl });
+
+      return mockUrl;
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      throw error;
+    }
+  };
+
+  const submitPayment = async (mpesaCode: string, phoneNumber: string) => {
+    try {
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('payments')
+        .insert({
+          user_id: user.id,
+          mpesa_code: mpesaCode,
+          phone_number: phoneNumber,
+          amount: 300.00,
+          status: 'Pending'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Payment submitted',
+        description: 'Your payment has been submitted for verification.',
+      });
+    } catch (error) {
+      console.error('Error submitting payment:', error);
+      toast({
+        title: 'Payment failed',
+        description: 'There was a problem submitting your payment.',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const checkAccountStatus = async () => {
+    try {
+      if (!user || !profile) {
+        return {
+          isApproved: false,
+          paymentVerified: false,
+          emailVerified: false,
+          faceVerified: false,
+        };
+      }
+
+      return {
+        isApproved: profile.account_approved || false,
+        paymentVerified: profile.payment_verified || false,
+        emailVerified: profile.email_verified || false,
+        faceVerified: profile.face_verified || false,
+      };
+    } catch (error) {
+      console.error('Error checking account status:', error);
+      return {
+        isApproved: false,
+        paymentVerified: false,
+        emailVerified: false,
+        faceVerified: false,
+      };
+    }
+  };
+
   const value: AuthContextType = {
     user,
     profile,
@@ -211,6 +303,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     resetPassword,
     updateProfile,
+    uploadDocument,
+    submitPayment,
+    checkAccountStatus,
   };
 
   return (
