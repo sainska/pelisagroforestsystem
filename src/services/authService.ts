@@ -18,6 +18,8 @@ export const authService = {
     }
   ): Promise<AuthResponse> {
     try {
+      console.log('Attempting to sign up with metadata:', { ...metadata, password: '[HIDDEN]' });
+      
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -31,6 +33,7 @@ export const authService = {
         return { data: { user: null, session: null }, error: signUpError };
       }
 
+      console.log('Sign up successful:', signUpData);
       return { data: signUpData, error: null };
     } catch (error) {
       console.error('Sign-up failed:', error);
@@ -40,7 +43,9 @@ export const authService = {
 
   async signIn(email: string, password: string) {
     try {
+      console.log('Attempting to sign in with email:', email);
       const result = await supabase.auth.signInWithPassword({ email, password });
+      console.log('Sign in result:', result);
       return result;
     } catch (error) {
       console.error('Error signing in:', error);
@@ -129,17 +134,30 @@ export const authService = {
     try {
       if (!userId) throw new Error('User not authenticated');
 
-      const { error } = await supabase
-        .from('payments')
-        .insert({
-          user_id: userId,
-          mpesa_code: mpesaCode,
-          phone_number: phoneNumber,
-          amount: 300.00,
-          status: 'Pending'
-        });
+      // Note: payments table exists but may not be in types yet
+      // Using raw query for now
+      const { error } = await supabase.rpc('submit_payment', {
+        p_user_id: userId,
+        p_mpesa_code: mpesaCode,
+        p_phone_number: phoneNumber,
+        p_amount: 300.00
+      });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Payment submission error:', error);
+        // Fallback: try direct insert if RPC doesn't exist
+        const { error: insertError } = await supabase
+          .from('payments' as any)
+          .insert({
+            user_id: userId,
+            mpesa_code: mpesaCode,
+            phone_number: phoneNumber,
+            amount: 300.00,
+            status: 'Pending'
+          });
+
+        if (insertError) throw insertError;
+      }
 
       toast({
         title: 'Payment submitted',

@@ -2,7 +2,28 @@
 import type { User, Session, AuthError, AuthResponse } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
 
-export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type Profile = {
+  id: string;
+  national_id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: 'Admin' | 'Officer' | 'Community Member';
+  farm_group_id: string | null;
+  avatar_url: string | null;
+  id_document_url: string | null;
+  face_photo_url: string | null;
+  face_verified: boolean;
+  email_verified: boolean;
+  payment_verified: boolean;
+  account_approved: boolean;
+  approved_by: string | null;
+  approved_at: string | null;
+  trust_score: number;
+  location: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 export interface AuthContextType {
   user: User | null;

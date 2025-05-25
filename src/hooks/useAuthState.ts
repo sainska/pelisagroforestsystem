@@ -24,15 +24,38 @@ export const useAuthState = () => {
         setSession(session);
         setUser(session.user);
 
+        // Fetch profile with all the new fields
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('*')
+          .select(`
+            id,
+            national_id,
+            name,
+            email,
+            phone,
+            role,
+            farm_group_id,
+            avatar_url,
+            id_document_url,
+            face_photo_url,
+            face_verified,
+            email_verified,
+            payment_verified,
+            account_approved,
+            approved_by,
+            approved_at,
+            trust_score,
+            location,
+            created_at,
+            updated_at
+          `)
           .eq('id', session.user.id)
           .single();
 
         if (profileError) {
           console.error('Error fetching profile:', profileError);
         } else {
+          console.log('Profile fetched:', profileData);
           setProfile(profileData);
         }
       }
@@ -53,7 +76,28 @@ export const useAuthState = () => {
           setTimeout(async () => {
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('*')
+              .select(`
+                id,
+                national_id,
+                name,
+                email,
+                phone,
+                role,
+                farm_group_id,
+                avatar_url,
+                id_document_url,
+                face_photo_url,
+                face_verified,
+                email_verified,
+                payment_verified,
+                account_approved,
+                approved_by,
+                approved_at,
+                trust_score,
+                location,
+                created_at,
+                updated_at
+              `)
               .eq('id', session.user.id)
               .single();
 
