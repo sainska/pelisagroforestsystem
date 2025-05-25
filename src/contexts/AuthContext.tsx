@@ -1,4 +1,4 @@
-
+// src/context/authcontext.tsx
 import React, { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from '@/hooks/useAuthState';
@@ -14,16 +14,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (
     email: string,
     password: string,
-    metadata: { 
-      name: string; 
-      phone: string; 
-      national_id: string; 
+    metadata: {
+      name: string;
+      phone: string;
+      national_id: string;
       location: string;
       id_document_url?: string;
       face_photo_url?: string;
     }
   ) => {
-    return authService.signUp(email, password, metadata);
+    // Call authService.signUp to create user and save profile metadata
+    const newUser = await authService.signUp(email, password, metadata);
+    // Fetch and update profile state
+    if (newUser?.id) {
+      const updatedProfile = await authService.updateProfile({}, newUser.id, setProfile);
+      return { user: newUser, profile: updatedProfile };
+    }
+    return null;
   };
 
   const signIn = async (email: string, password: string) => {
@@ -46,11 +53,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const uploadDocument = async (file: File, type: 'id' | 'face'): Promise<string> => {
     if (!user) throw new Error('User not authenticated');
     const url = await authService.uploadDocument(file, type, user.id);
-    
+
     // Update profile with document URL
     const updateField = type === 'id' ? 'id_document_url' : 'face_photo_url';
     await updateProfile({ [updateField]: url });
-    
+
     return url;
   };
 
