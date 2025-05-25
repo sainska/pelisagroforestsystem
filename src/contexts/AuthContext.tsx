@@ -1,4 +1,3 @@
-// src/context/authcontext.tsx
 import React, { createContext, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthState } from '@/hooks/useAuthState';
@@ -23,14 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       face_photo_url?: string;
     }
   ) => {
-    // Call authService.signUp to create user and save profile metadata
-    const newUser = await authService.signUp(email, password, metadata);
-    // Fetch and update profile state
-    if (newUser?.id) {
-      const updatedProfile = await authService.updateProfile({}, newUser.id, setProfile);
-      return { user: newUser, profile: updatedProfile };
-    }
-    return null;
+    return authService.signUp(email, password, metadata);
   };
 
   const signIn = async (email: string, password: string) => {
