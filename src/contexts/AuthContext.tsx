@@ -8,11 +8,15 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null); // NEW: error state
 
+  // Handle session initialization and changes
   useEffect(() => {
+    let mounted = true;
+
     const getSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
-      setSession(session);
+      if (mounted) setSession(session);
     };
 
     getSession();
@@ -21,18 +25,26 @@ export const AuthProvider = ({ children }) => {
       setSession(session);
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
+  // Fetch user profile when session changes
   useEffect(() => {
+    let mounted = true;
+
     const fetchUserProfile = async () => {
+      setLoading(true);
+      setError(null); // Reset error on new attempt
+
       if (!session?.user) {
         setUserProfile(null);
         setLoading(false);
         return;
       }
 
-      setLoading(true);
       const { data, error } = await supabase
         .from("profiles")
         .select(`
@@ -59,8 +71,10 @@ export const AuthProvider = ({ children }) => {
         .eq("id", session.user.id)
         .single();
 
+      if (!mounted) return;
+
       if (error) {
-        console.error("Error fetching profile:", error.message);
+        setError(`Error fetching profile: ${error.message}`);
         setUserProfile(null);
       } else {
         setUserProfile(data);
@@ -69,11 +83,15 @@ export const AuthProvider = ({ children }) => {
     };
 
     fetchUserProfile();
+
+    return () => { mounted = false; };
   }, [session]);
 
+  // Don't render children until loading is false
   return (
-    <AuthContext.Provider value={{ session, userProfile, loading }}>
-      {children}
+    <AuthContext.Provider value={{ session, userProfile, loading, error }}>
+      {loading ? <div>Loading authentication...</div> : children}
+      {error && <div style={{ color: 'red' }}>{error}</div>}
     </AuthContext.Provider>
   );
 };
