@@ -54,6 +54,9 @@ export interface AuthContextType {
     emailVerified: boolean;
     faceVerified: boolean;
   }>;
+  loading: boolean;
+  error: string | null;
+  refreshProfile: () => Promise<void>;
 }
 
 export interface AccountStatus {
