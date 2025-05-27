@@ -38,6 +38,7 @@ export interface AuthContextType {
       phone: string; 
       national_id: string; 
       location: string;
+      role?: string;
       id_document_url?: string;
       face_photo_url?: string;
     }
