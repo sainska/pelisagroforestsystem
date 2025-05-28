@@ -8,7 +8,7 @@ export type Profile = {
   name: string;
   email: string;
   phone: string | null;
-  role: 'Admin' | 'Officer' | 'Community Member';
+  role: 'Admin' | 'Officer' | 'Community Member' | 'NNECFA Admin' | 'NNECFA Official';
   farm_group_id: string | null;
   avatar_url: string | null;
   id_document_url: string | null;
