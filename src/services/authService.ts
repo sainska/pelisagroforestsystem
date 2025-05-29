@@ -41,14 +41,12 @@ export const authService = {
     }
   },
 
-  async initiateSTKPush(phoneNumber: string, amount: number, accountReference: string, apiCredentials?: { consumerKey: string; consumerSecret: string }): Promise<any> {
+  async initiateSTKPush(phoneNumber: string, amount: number, accountReference: string): Promise<any> {
     try {
       const { data, error } = await supabase.rpc('initiate_mpesa_stk_push', {
         p_phone_number: phoneNumber,
         p_amount: amount,
-        p_account_reference: accountReference,
-        p_consumer_key: apiCredentials?.consumerKey,
-        p_consumer_secret: apiCredentials?.consumerSecret
+        p_account_reference: accountReference
       });
       
       if (error) {

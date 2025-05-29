@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Smartphone, CheckCircle, Settings } from "lucide-react";
+import { Loader2, Smartphone, CheckCircle } from "lucide-react";
 import { authService } from "@/services/authService";
 import { toast } from "@/hooks/use-toast";
 
@@ -23,9 +23,6 @@ const STKPushModal = ({ isOpen, onClose, onSuccess, amount, accountReference }: 
   const [pushSent, setPushSent] = useState(false);
   const [mpesaCode, setMpesaCode] = useState('');
   const [checkoutRequestId, setCheckoutRequestId] = useState('');
-  const [showApiConfig, setShowApiConfig] = useState(false);
-  const [consumerKey, setConsumerKey] = useState('');
-  const [consumerSecret, setConsumerSecret] = useState('');
 
   const handleSendSTKPush = async () => {
     if (!phoneNumber || phoneNumber.length < 10) {
@@ -37,21 +34,9 @@ const STKPushModal = ({ isOpen, onClose, onSuccess, amount, accountReference }: 
       return;
     }
 
-    if (!consumerKey || !consumerSecret) {
-      toast({
-        title: "Missing API Credentials",
-        description: "Please enter your Daraja API consumer key and secret",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const result = await authService.initiateSTKPush(phoneNumber, amount, accountReference, {
-        consumerKey,
-        consumerSecret
-      });
+      const result = await authService.initiateSTKPush(phoneNumber, amount, accountReference);
       if (result.success) {
         setPushSent(true);
         setCheckoutRequestId(result.checkout_request_id);
@@ -63,7 +48,7 @@ const STKPushModal = ({ isOpen, onClose, onSuccess, amount, accountReference }: 
     } catch (error) {
       toast({
         title: "STK Push Failed",
-        description: "Failed to send STK push. Please check your API credentials and try manual payment.",
+        description: "Failed to send STK push. Please try manual payment instead.",
         variant: "destructive",
       });
     } finally {
@@ -90,9 +75,6 @@ const STKPushModal = ({ isOpen, onClose, onSuccess, amount, accountReference }: 
     setMpesaCode('');
     setPushSent(false);
     setCheckoutRequestId('');
-    setShowApiConfig(false);
-    setConsumerKey('');
-    setConsumerSecret('');
     onClose();
   };
 
@@ -113,7 +95,7 @@ const STKPushModal = ({ isOpen, onClose, onSuccess, amount, accountReference }: 
           <div className="space-y-4">
             <Alert>
               <AlertDescription>
-                Enter your M-Pesa registered phone number and Daraja API credentials to receive a payment prompt
+                Enter your M-Pesa registered phone number to receive a payment prompt
               </AlertDescription>
             </Alert>
 
@@ -131,60 +113,11 @@ const STKPushModal = ({ isOpen, onClose, onSuccess, amount, accountReference }: 
               </p>
             </div>
 
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <div className="flex items-center justify-between mb-3">
-                <Label className="text-sm font-medium flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Daraja API Configuration
-                </Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowApiConfig(!showApiConfig)}
-                >
-                  {showApiConfig ? 'Hide' : 'Show'}
-                </Button>
-              </div>
-              
-              {showApiConfig && (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="consumer-key" className="text-sm">Consumer Key</Label>
-                    <Input
-                      id="consumer-key"
-                      type="password"
-                      value={consumerKey}
-                      onChange={(e) => setConsumerKey(e.target.value)}
-                      placeholder="Enter your Daraja API consumer key"
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="consumer-secret" className="text-sm">Consumer Secret</Label>
-                    <Input
-                      id="consumer-secret"
-                      type="password"
-                      value={consumerSecret}
-                      onChange={(e) => setConsumerSecret(e.target.value)}
-                      placeholder="Enter your Daraja API consumer secret"
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <p className="text-xs text-gray-600">
-                    Get your credentials from the Safaricom Developer Portal
-                  </p>
-                </div>
-              )}
-            </div>
-
             <div className="flex flex-col gap-3">
               <Button
                 onClick={handleSendSTKPush}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
-                disabled={isLoading || !phoneNumber || !consumerKey || !consumerSecret}
+                disabled={isLoading || !phoneNumber}
               >
                 {isLoading ? (
                   <>
