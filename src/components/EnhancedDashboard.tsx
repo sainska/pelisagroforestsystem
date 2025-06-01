@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +27,7 @@ import ReportsModal from "./ReportsModal";
 import MarketplaceModal from "./MarketplaceModal";
 import MessagesModal from "./MessagesModal";
 import DirectionsModal from "./DirectionsModal";
+import ManageOfficialsModal from "./ManageOfficialsModal";
 
 const EnhancedDashboard = () => {
   const { profile, checkAccountStatus, user } = useAuth();
@@ -53,6 +53,7 @@ const EnhancedDashboard = () => {
   const [marketplaceModalOpen, setMarketplaceModalOpen] = useState(false);
   const [messagesModalOpen, setMessagesModalOpen] = useState(false);
   const [directionsModalOpen, setDirectionsModalOpen] = useState(false);
+  const [manageOfficialsModalOpen, setManageOfficialsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -163,7 +164,25 @@ const EnhancedDashboard = () => {
       disabled: false,
       color: "bg-teal-500 hover:bg-teal-600",
     },
+    {
+      title: "Manage Officials",
+      description: "Create and manage NNECFA Officials",
+      icon: <Users className="h-6 w-6" />,
+      action: () => setManageOfficialsModalOpen(true),
+      disabled: profile?.role !== 'NNECFA Admin',
+      color: "bg-purple-500 hover:bg-purple-600",
+      adminOnly: true,
+    },
   ];
+
+  // Filter quick actions based on user role
+  const filteredQuickActions = quickActions.filter(action => {
+    // If action is admin-only, only show for NNECFA Admin
+    if (action.adminOnly) {
+      return profile?.role === 'NNECFA Admin';
+    }
+    return true;
+  });
 
   if (isLoading) {
     return (
@@ -277,7 +296,7 @@ const EnhancedDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {quickActions.map((action, index) => (
+              {filteredQuickActions.map((action, index) => (
                 <Button
                   key={index}
                   onClick={action.action}
@@ -294,7 +313,7 @@ const EnhancedDashboard = () => {
                   </div>
                   {action.disabled && (
                     <Badge variant="secondary" className="text-xs">
-                      Requires Approval
+                      {action.disabled === true ? 'Requires Approval' : action.disabled}
                     </Badge>
                   )}
                 </Button>
@@ -340,6 +359,16 @@ const EnhancedDashboard = () => {
                 <Settings className="h-4 w-4 mr-2" />
                 Edit Profile
               </Button>
+              {profile?.role === 'NNECFA Admin' && (
+                <Button
+                  variant="outline"
+                  className="w-full mt-4 bg-emerald-50 hover:bg-emerald-100 border-emerald-200"
+                  onClick={() => window.location.href = '/admin'}
+                >
+                  <Settings className="h-4 w-4 mr-2 text-emerald-600" />
+                  Access Admin Dashboard
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -426,6 +455,12 @@ const EnhancedDashboard = () => {
         isOpen={directionsModalOpen}
         onClose={() => setDirectionsModalOpen(false)}
       />
+      {profile?.role === 'NNECFA Admin' && (
+        <ManageOfficialsModal
+          isOpen={manageOfficialsModalOpen}
+          onClose={() => setManageOfficialsModalOpen(false)}
+        />
+      )}
     </div>
   );
 };
