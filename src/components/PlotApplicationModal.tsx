@@ -46,6 +46,15 @@ const PlotApplicationModal = ({ isOpen, onClose }: PlotApplicationModalProps) =>
   };
 
   const validateForm = () => {
+    if (!user) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to submit an application.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     if (!formData.preferredSize || parseFloat(formData.preferredSize) <= 0) {
       toast({
         title: "Validation Error",
@@ -87,26 +96,49 @@ const PlotApplicationModal = ({ isOpen, onClose }: PlotApplicationModalProps) =>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !validateForm()) return;
-
-    setIsSubmitting(true);
+    
     try {
-      const { error } = await supabase
+      // Validate form before proceeding
+      if (!validateForm()) return;
+
+      setIsSubmitting(true);
+
+      // Combine all additional information into notes
+      const combinedNotes = `
+Location Preference: ${formData.locationPreference}
+Farming Experience: ${formData.farmingExperience}
+Intended Use: ${formData.intendedUse}
+Has Equipment: ${formData.hasEquipment ? 'Yes' : 'No'}
+Additional Notes: ${formData.notes}
+      `.trim();
+
+      // Log the data being submitted
+      console.log('Submitting plot application:', {
+        applicant_id: user?.id,
+        preferred_size: parseFloat(formData.preferredSize),
+        reason: formData.reason,
+        notes: combinedNotes,
+        status: 'Pending'
+      });
+
+      const { data, error } = await supabase
         .from('plot_applications')
         .insert({
-          applicant_id: user.id,
+          applicant_id: user?.id,
           preferred_size: parseFloat(formData.preferredSize),
-          location_preference: formData.locationPreference,
           reason: formData.reason,
-          farming_experience: formData.farmingExperience,
-          intended_use: formData.intendedUse,
-          has_equipment: formData.hasEquipment,
-          notes: formData.notes || null,
-          status: 'Pending',
-          farm_group_id: profile?.farm_group_id || null
-        });
+          notes: combinedNotes,
+          status: 'Pending'
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Application submitted successfully:', data);
 
       toast({
         title: "Application Submitted",
@@ -124,11 +156,24 @@ const PlotApplicationModal = ({ isOpen, onClose }: PlotApplicationModalProps) =>
         notes: "",
       });
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting application:', error);
+      
+      // Provide more specific error messages based on the error type
+      let errorMessage = "Failed to submit application. ";
+      if (error.code === "23502") { // not_null_violation
+        errorMessage += "Please fill in all required fields.";
+      } else if (error.code === "23503") { // foreign_key_violation
+        errorMessage += "Invalid reference to farm group.";
+      } else if (error.code === "42703") { // undefined_column
+        errorMessage += "Database schema mismatch. Please contact support.";
+      } else {
+        errorMessage += error.message || "Please try again.";
+      }
+
       toast({
         title: "Error",
-        description: "Failed to submit application. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
