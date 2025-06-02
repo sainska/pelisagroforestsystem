@@ -30,6 +30,8 @@ import MarketplaceModal from "./MarketplaceModal";
 import MessagesModal from "./MessagesModal";
 import DirectionsModal from "./DirectionsModal";
 import ManageOfficialsModal from "./ManageOfficialsModal";
+import NotificationsModal from "./NotificationsModal";
+import EditProfileModal from "./UserProfile";
 import { Database } from "@/types/supabase";
 import { jsPDF } from "jspdf";
 import 'jspdf-autotable';
@@ -37,7 +39,19 @@ import 'jspdf-autotable';
 type ActivityLog = Database['public']['Tables']['activity_log']['Row'];
 type MarketplaceListing = Database['public']['Tables']['marketplace_listings']['Row'];
 
-const EnhancedDashboard = () => {
+interface EnhancedDashboardProps {
+  notificationsModalOpen: boolean;
+  setNotificationsModalOpen: (open: boolean) => void;
+  editProfileModalOpen: boolean;
+  setEditProfileModalOpen: (open: boolean) => void;
+}
+
+const EnhancedDashboard = ({
+  notificationsModalOpen,
+  setNotificationsModalOpen,
+  editProfileModalOpen,
+  setEditProfileModalOpen,
+}: EnhancedDashboardProps) => {
   const { profile, checkAccountStatus, user } = useAuth();
   const [accountStatus, setAccountStatus] = useState({
     isApproved: false,
@@ -399,7 +413,11 @@ const EnhancedDashboard = () => {
                   <Badge variant="outline">{profile?.role}</Badge>
                 </div>
               </div>
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setEditProfileModalOpen(true)}
+              >
                 <Settings className="h-4 w-4 mr-2" />
                 Edit Profile
               </Button>
@@ -534,6 +552,14 @@ const EnhancedDashboard = () => {
           onClose={() => setManageOfficialsModalOpen(false)}
         />
       )}
+      <NotificationsModal
+        isOpen={notificationsModalOpen}
+        onClose={() => setNotificationsModalOpen(false)}
+      />
+      <EditProfileModal
+        isOpen={editProfileModalOpen}
+        onClose={() => setEditProfileModalOpen(false)}
+      />
     </div>
   );
 };
