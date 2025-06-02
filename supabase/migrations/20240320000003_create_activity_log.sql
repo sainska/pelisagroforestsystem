@@ -121,4 +121,8 @@ CREATE TRIGGER log_marketplace_listings_activity
     AFTER INSERT OR UPDATE
     ON marketplace_listings
     FOR EACH ROW
-    EXECUTE FUNCTION log_activity(); 
+    EXECUTE FUNCTION log_activity();
+
+-- Add location column to marketplace_listings table
+ALTER TABLE marketplace_listings
+ADD COLUMN location text NOT NULL DEFAULT ''; 

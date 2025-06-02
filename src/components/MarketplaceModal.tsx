@@ -124,63 +124,6 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
     e.preventDefault();
     if (!user) return;
 
-    // Validate form data
-    if (!formData.title.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter a product title",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.category) {
-      toast({
-        title: "Validation Error",
-        description: "Please select a product category",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.description.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter a product description",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.location.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter a location",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const price = parseFloat(formData.price);
-    if (isNaN(price) || price <= 0) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter a valid price",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const quantity = parseInt(formData.quantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter a valid quantity",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       setIsLoading(true);
 
@@ -191,7 +134,7 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `marketplace/${fileName}`;
 
-        const { error: uploadError, data: uploadData } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('product-images')
           .upload(filePath, formData.image);
 
@@ -210,8 +153,8 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
         .insert({
           title: formData.title.trim(),
           description: formData.description.trim(),
-          price: price,
-          quantity: quantity,
+          price: parseFloat(formData.price),
+          quantity: parseInt(formData.quantity),
           category: formData.category,
           location: formData.location.trim(),
           image_url,
@@ -219,7 +162,10 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
           status: formData.availability
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating listing:', error);
+        throw error;
+      }
 
       toast({
         title: "Success",
