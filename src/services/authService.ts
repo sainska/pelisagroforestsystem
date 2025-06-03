@@ -110,10 +110,38 @@ export const authService = {
     }
   },
 
-  async signIn(email: string, password: string) {
+  async signIn(emailOrNationalId: string, password: string) {
     try {
-      console.log('Attempting to sign in with email:', email);
-      const result = await supabase.auth.signInWithPassword({ email, password });
+      let loginEmail = emailOrNationalId;
+
+      // Check if the input looks like a national ID (not containing @ symbol)
+      if (!emailOrNationalId.includes('@')) {
+        // Get email by national ID using our database function
+        const { data: email, error: emailError } = await supabase
+          .rpc('get_user_email_by_national_id', {
+            check_national_id: emailOrNationalId
+          });
+
+        if (emailError || !email) {
+          return {
+            data: { user: null, session: null },
+            error: {
+              message: 'National ID not found. Please check your National ID or use your email address.',
+              name: 'NotFoundError',
+              status: 404
+            } as AuthError
+          };
+        }
+
+        loginEmail = email;
+      }
+
+      // Proceed with login using the email
+      console.log('Attempting to sign in with email:', loginEmail);
+      const result = await supabase.auth.signInWithPassword({ 
+        email: loginEmail, 
+        password 
+      });
       console.log('Sign in result:', result);
       return result;
     } catch (error) {

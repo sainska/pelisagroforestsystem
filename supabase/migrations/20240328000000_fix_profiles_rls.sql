@@ -48,4 +48,24 @@ BEGIN
 
     RETURN email_exists;
 END;
+$$;
+
+-- Create a function to get user email by national ID
+CREATE OR REPLACE FUNCTION public.get_user_email_by_national_id(check_national_id text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    user_email text;
+BEGIN
+    -- Get email from profiles table by national ID
+    SELECT email
+    FROM profiles
+    WHERE national_id = check_national_id
+    INTO user_email;
+
+    RETURN user_email;
+END;
 $$; 
