@@ -140,14 +140,60 @@ export const authService = {
     }
   },
 
+  async checkEmailExists(email: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .rpc('check_email_exists', {
+          check_email: email
+        });
+      
+      if (error) {
+        console.error('Error checking email:', error);
+        return false;
+      }
+      
+      return !!data;
+    } catch (error) {
+      console.error('Error checking email:', error);
+      return false;
+    }
+  },
+
   async resetPassword(email: string) {
     try {
-      return await supabase.auth.resetPasswordForEmail(email, {
+      // Check if email exists in the database
+      const emailExists = await this.checkEmailExists(email);
+      
+      if (!emailExists) {
+        return {
+          error: {
+            message: 'This email is not registered in our system.',
+            name: 'NotFoundError',
+            status: 404
+          } as AuthError
+        };
+      }
+
+      // If email exists, proceed with password reset
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
+
+      if (error) {
+        console.error('Error in resetPassword:', error);
+        return { error };
+      }
+
+      return { data, error: null };
     } catch (error) {
       console.error('Error resetting password:', error);
-      throw error;
+      return {
+        error: {
+          message: 'An unexpected error occurred. Please try again later.',
+          name: 'UnexpectedError',
+          status: 500
+        } as AuthError
+      };
     }
   },
 

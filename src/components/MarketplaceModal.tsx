@@ -243,8 +243,8 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
           required
           className="min-h-[100px] focus:ring-2 focus:ring-emerald-500"
         />
-      </div>
-
+          </div>
+          
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="location">Location</Label>
@@ -273,11 +273,11 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
               <SelectItem value="archived">Archived</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-      </div>
+                  </div>
+                </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+                  <div>
           <Label htmlFor="price">Price (KES)</Label>
           <Input
             id="price"
@@ -290,8 +290,8 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
             required
             className="focus:ring-2 focus:ring-emerald-500"
           />
-        </div>
-        <div>
+                  </div>
+                  <div>
           <Label htmlFor="quantity">Quantity Available</Label>
           <Input
             id="quantity"
@@ -304,9 +304,9 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
             className="focus:ring-2 focus:ring-emerald-500"
           />
         </div>
-      </div>
+                  </div>
 
-      <div>
+                  <div>
         <Label htmlFor="image">Product Image</Label>
         <div className="mt-1 flex items-center space-x-4">
           <div className="relative w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
@@ -381,7 +381,7 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
               {product.status === 'available' ? 'In Stock' : 
                product.status === 'sold_out' ? 'Sold Out' : 'Archived'}
             </Badge>
-          </div>
+                  </div>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2 mb-2">
               <div className="w-8 h-8 rounded-full overflow-hidden">
@@ -437,11 +437,11 @@ const MarketplaceModal = ({ isOpen, onClose }: MarketplaceModalProps) => {
                   <Trash className="w-4 h-4 mr-1" />
                   Delete
                 </Button>
-              </div>
+                </div>
             )}
-          </CardContent>
-        </Card>
-      ))}
+              </CardContent>
+            </Card>
+          ))}
     </div>
   );
 
