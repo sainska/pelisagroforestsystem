@@ -350,6 +350,17 @@ export const authService = {
         return false;
       }
 
+      // Get the admin role ID
+      const { data: roleId, error: roleError } = await supabase
+        .rpc('get_role_id_by_name', {
+          role_name: 'NNECFA Admin'
+        });
+
+      if (roleError || !roleId) {
+        console.error('Error getting admin role ID:', roleError);
+        return false;
+      }
+
       // Create the first admin account
       const adminEmail = 'admin@nnecfa.org';
       const adminPassword = 'Admin@NNECFA2024'; // This should be changed immediately after first login
@@ -358,7 +369,7 @@ export const authService = {
         phone: '',
         national_id: 'ADMIN001',
         location: 'NNECFA Headquarters',
-        role: 'NNECFA Admin',
+        role_id: roleId,
         email_verified: true,
         payment_verified: true,
         face_verified: true,
@@ -381,7 +392,7 @@ export const authService = {
             payment_verified: true,
             face_verified: true,
             account_approved: true,
-            role: 'NNECFA Admin',
+            role_id: roleId,
             trust_score: 100
           })
           .eq('id', data.user.id);
@@ -411,6 +422,16 @@ export const authService = {
     createdByAdminId: string
   ): Promise<AuthResponse> {
     try {
+      // Get the official role ID
+      const { data: roleId, error: roleError } = await supabase
+        .rpc('get_role_id_by_name', {
+          role_name: 'NNECFA Official'
+        });
+
+      if (roleError || !roleId) {
+        throw new Error('Error getting official role ID');
+      }
+
       // Generate a temporary password
       const tempPassword = `NNECFA${Math.random().toString(36).slice(-8)}`;
       
@@ -419,7 +440,7 @@ export const authService = {
         phone,
         national_id,
         location,
-        role: 'NNECFA Official',
+        role_id: roleId,
         email_verified: true,
         payment_verified: true,
         face_verified: true,
@@ -441,7 +462,7 @@ export const authService = {
             payment_verified: true,
             face_verified: true,
             account_approved: true,
-            role: 'NNECFA Official',
+            role_id: roleId,
             trust_score: 90,
             approved_by: createdByAdminId,
             approved_at: new Date().toISOString()
