@@ -1,3 +1,7 @@
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+
 -- Drop existing functions first to avoid conflicts
 DROP FUNCTION IF EXISTS public.initiate_mpesa_stk_push(VARCHAR, DECIMAL, VARCHAR);
 DROP FUNCTION IF EXISTS public.initiate_mpesa_stk_push(TEXT, NUMERIC, TEXT);
@@ -42,7 +46,87 @@ CREATE TABLE IF NOT EXISTS public.payments (
     UNIQUE(mpesa_code)
 );
 
--- Create the function to initiate STK push with consistent TEXT type
+-- Create a function to get M-Pesa access token
+CREATE OR REPLACE FUNCTION get_mpesa_access_token()
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_response json;
+    v_auth text;
+    v_consumer_key text;
+    v_consumer_secret text;
+    v_environment text;
+BEGIN
+    -- Get credentials from settings table
+    SELECT app_settings.get_setting('mpesa_consumer_key') INTO v_consumer_key;
+    SELECT app_settings.get_setting('mpesa_consumer_secret') INTO v_consumer_secret;
+    SELECT app_settings.get_setting('mpesa_environment') INTO v_environment;
+
+    IF v_consumer_key IS NULL OR v_consumer_secret IS NULL THEN
+        RAISE EXCEPTION 'M-Pesa credentials not configured';
+    END IF;
+
+    -- Create auth string
+    v_auth := encode(
+        convert_to(
+            v_consumer_key || ':' || v_consumer_secret,
+            'utf8'
+        ),
+        'base64'
+    );
+
+    SELECT content::json INTO v_response
+    FROM extensions.net_http_get(
+        CASE WHEN v_environment = 'production' THEN
+            'https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
+        ELSE
+            'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
+        END,
+        ARRAY[
+            ('Authorization', 'Basic ' || v_auth)::extensions.net_header
+        ]
+    );
+
+    RETURN v_response->>'access_token';
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Failed to get access token: %', SQLERRM;
+END;
+$$;
+
+-- Function to generate M-Pesa password
+CREATE OR REPLACE FUNCTION generate_mpesa_password(p_timestamp text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_shortcode text;
+    v_passkey text;
+BEGIN
+    -- Get credentials from settings table
+    SELECT app_settings.get_setting('mpesa_shortcode') INTO v_shortcode;
+    SELECT app_settings.get_setting('mpesa_passkey') INTO v_passkey;
+
+    IF v_shortcode IS NULL OR v_passkey IS NULL THEN
+        RAISE EXCEPTION 'M-Pesa shortcode or passkey not configured';
+    END IF;
+
+    RETURN encode(
+        convert_to(
+            v_shortcode || v_passkey || p_timestamp,
+            'utf8'
+        ),
+        'base64'
+    );
+END;
+$$;
+
+-- Update the STK push function to use actual M-Pesa API
 CREATE OR REPLACE FUNCTION public.initiate_mpesa_stk_push(
     p_phone_number TEXT,
     p_amount DECIMAL,
@@ -51,10 +135,18 @@ CREATE OR REPLACE FUNCTION public.initiate_mpesa_stk_push(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_result jsonb;
     v_request_id UUID;
+    v_timestamp text;
+    v_password text;
+    v_token text;
+    v_response json;
+    v_shortcode text;
+    v_callback_url text;
+    v_environment text;
 BEGIN
     -- Validate phone number format
     IF NOT p_phone_number ~ '^254[0-9]{9}$' THEN
@@ -64,7 +156,28 @@ BEGIN
         );
     END IF;
 
-    -- Insert the request into stk_push_requests table
+    -- Get M-Pesa settings
+    SELECT app_settings.get_setting('mpesa_shortcode') INTO v_shortcode;
+    SELECT app_settings.get_setting('mpesa_callback_url') INTO v_callback_url;
+    SELECT app_settings.get_setting('mpesa_environment') INTO v_environment;
+
+    IF v_shortcode IS NULL OR v_callback_url IS NULL THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'M-Pesa configuration incomplete. Please configure shortcode and callback URL.'
+        );
+    END IF;
+
+    -- Generate timestamp (YYYYMMDDHHmmss)
+    v_timestamp := to_char(now(), 'YYYYMMDDHH24MISS');
+    
+    -- Get access token
+    v_token := get_mpesa_access_token();
+    
+    -- Generate password
+    v_password := generate_mpesa_password(v_timestamp);
+
+    -- Insert initial record
     INSERT INTO public.stk_push_requests (
         phone_number,
         amount,
@@ -75,18 +188,61 @@ BEGIN
         p_account_reference
     ) RETURNING id INTO v_request_id;
 
-    -- For now, return a mock successful response
-    -- TODO: Replace with actual M-Pesa API call when credentials are configured
-    v_result := jsonb_build_object(
-        'success', true,
-        'checkout_request_id', v_request_id,
-        'merchant_request_id', 'mock_' || v_request_id,
-        'message', 'STK push request initiated successfully'
+    -- Make API call to M-Pesa
+    SELECT content::json INTO v_response
+    FROM extensions.net_http_post(
+        CASE WHEN v_environment = 'production' THEN
+            'https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+        ELSE
+            'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+        END,
+        jsonb_build_object(
+            'BusinessShortCode', v_shortcode,
+            'Password', v_password,
+            'Timestamp', v_timestamp,
+            'TransactionType', 'CustomerPayBillOnline',
+            'Amount', p_amount::text,
+            'PartyA', p_phone_number,
+            'PartyB', v_shortcode,
+            'PhoneNumber', p_phone_number,
+            'CallBackURL', v_callback_url,
+            'AccountReference', p_account_reference,
+            'TransactionDesc', 'NNECFA Registration Payment'
+        )::text,
+        'application/json',
+        ARRAY[
+            ('Authorization', 'Bearer ' || v_token)::extensions.net_header
+        ]
     );
 
-    RETURN v_result;
+    -- Update the request with response data
+    UPDATE public.stk_push_requests
+    SET 
+        checkout_request_id = v_response->>'CheckoutRequestID',
+        merchant_request_id = v_response->>'MerchantRequestID',
+        status = 'processing',
+        updated_at = NOW()
+    WHERE id = v_request_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'checkout_request_id', v_response->>'CheckoutRequestID',
+        'merchant_request_id', v_response->>'MerchantRequestID',
+        'response_code', v_response->>'ResponseCode',
+        'response_description', v_response->>'ResponseDescription',
+        'customer_message', v_response->>'CustomerMessage'
+    );
 EXCEPTION
     WHEN OTHERS THEN
+        -- Update request status to failed
+        IF v_request_id IS NOT NULL THEN
+            UPDATE public.stk_push_requests
+            SET 
+                status = 'failed',
+                updated_at = NOW()
+            WHERE id = v_request_id;
+        END IF;
+
         RETURN jsonb_build_object(
             'success', false,
             'error', SQLERRM
@@ -102,6 +258,7 @@ CREATE OR REPLACE FUNCTION public.verify_mpesa_code_exists(
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
     -- First check in stk_push_requests table
