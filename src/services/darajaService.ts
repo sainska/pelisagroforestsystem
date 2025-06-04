@@ -11,10 +11,10 @@ class DarajaService {
         return this.accessToken;
       }
 
-      // Create auth string
-      const auth = Buffer.from(
+      // Create auth string using browser's btoa function
+      const auth = btoa(
         `${darajaConfig.consumerKey}:${darajaConfig.consumerSecret}`
-      ).toString('base64');
+      );
 
       // Get new token
       const response = await fetch(
@@ -59,7 +59,7 @@ class DarajaService {
 
   private generatePassword(timestamp: string): string {
     const str = `${darajaConfig.shortCode}${darajaConfig.passKey}${timestamp}`;
-    return Buffer.from(str).toString('base64');
+    return btoa(str);
   }
 
   public async initiateSTKPush(

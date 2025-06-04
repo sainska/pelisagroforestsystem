@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { AuthResponse, AuthError } from '@supabase/supabase-js';
 import type { Profile, AccountStatus } from '@/types/auth';
+import { darajaService } from './darajaService';
 
 export const authService = {
   async checkNationalIdExists(nationalId: string): Promise<boolean> {
@@ -69,43 +70,35 @@ export const authService = {
         throw new Error('Invalid phone number format. Use format: 254XXXXXXXXX');
       }
 
-      // Call the RPC function
-      const { data, error } = await supabase.rpc('initiate_mpesa_stk_push', {
-        p_phone_number: phoneNumber,
-        p_amount: amount,
-        p_account_reference: accountReference
-      });
+      // Use darajaService instead of RPC function
+      const result = await darajaService.initiateSTKPush(phoneNumber, amount, accountReference);
       
-      if (error) {
-        console.error('Error initiating STK push:', error);
-        throw new Error(error.message);
-      }
-
-      // Check if the response is successful
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to initiate STK push');
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to initiate STK push');
       }
 
       // Create a pending payment record
       const { error: paymentError } = await supabase
         .from('stk_push_requests')
-        .update({
+        .insert({
+          phone_number: phoneNumber,
+          amount: amount,
+          account_reference: accountReference,
           status: 'processing',
-          checkout_request_id: data.checkout_request_id,
-          merchant_request_id: data.merchant_request_id
-        })
-        .eq('id', data.checkout_request_id);
+          checkout_request_id: result.checkout_request_id,
+          merchant_request_id: result.merchant_request_id
+        });
 
       if (paymentError) {
-        console.error('Error updating payment record:', paymentError);
+        console.error('Error creating payment record:', paymentError);
         // Don't throw here, as the STK push was successful
       }
       
       return {
         success: true,
-        checkout_request_id: data.checkout_request_id,
-        merchant_request_id: data.merchant_request_id,
-        message: data.message
+        checkout_request_id: result.checkout_request_id,
+        merchant_request_id: result.merchant_request_id,
+        message: result.customer_message
       };
     } catch (error) {
       console.error('Error initiating STK push:', error);

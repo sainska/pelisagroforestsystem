@@ -1,9 +1,11 @@
+import { env } from './env';
+
 export const darajaConfig = {
   // Your Daraja API credentials
-  consumerKey: process.env.NEXT_PUBLIC_MPESA_CONSUMER_KEY || '',
-  consumerSecret: process.env.NEXT_PUBLIC_MPESA_CONSUMER_SECRET || '',
-  passKey: process.env.NEXT_PUBLIC_MPESA_PASSKEY || '',
-  shortCode: process.env.NEXT_PUBLIC_MPESA_BUSINESS_SHORT_CODE || '',
+  consumerKey: env.MPESA_CONSUMER_KEY,
+  consumerSecret: env.MPESA_CONSUMER_SECRET,
+  passKey: env.MPESA_PASSKEY,
+  shortCode: env.MPESA_BUSINESS_SHORT_CODE,
   
   // API endpoints
   endpoints: {
@@ -20,9 +22,9 @@ export const darajaConfig = {
   },
 
   // Callback URLs - Update these with your actual callback URLs
-  callbackUrl: process.env.NEXT_PUBLIC_MPESA_CALLBACK_URL || 'https://your-domain.com/api/mpesa/callback',
-  timeoutUrl: process.env.NEXT_PUBLIC_MPESA_TIMEOUT_URL || 'https://your-domain.com/api/mpesa/timeout',
+  callbackUrl: env.MPESA_CALLBACK_URL || 'https://your-domain.com/api/mpesa/callback',
+  timeoutUrl: env.MPESA_TIMEOUT_URL || 'https://your-domain.com/api/mpesa/timeout',
 
   // Environment
-  isDevelopment: process.env.NODE_ENV !== 'production'
+  isDevelopment: env.NODE_ENV !== 'production'
 }; 
