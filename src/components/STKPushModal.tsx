@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -37,26 +36,31 @@ const STKPushModal = ({ isOpen, onClose, onSuccess, amount, accountReference }: 
     setIsLoading(true);
     try {
       const result = await authService.initiateSTKPush(phoneNumber, amount, accountReference);
+      
       if (result.success) {
         setPushSent(true);
         setCheckoutRequestId(result.checkout_request_id);
         toast({
           title: "STK Push Sent",
-          description: "Please check your phone and enter your M-Pesa PIN",
+          description: "Please check your phone and enter your M-Pesa PIN to complete payment",
         });
+      } else {
+        throw new Error(result.message || 'Failed to send STK push');
       }
     } catch (error) {
+      console.error('STK push error:', error);
       toast({
         title: "STK Push Failed",
-        description: "Failed to send STK push. Please try manual payment instead.",
+        description: error instanceof Error ? error.message : "Failed to send STK push. Please try manual payment instead.",
         variant: "destructive",
       });
+      // Don't set pushSent to true if there's an error
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
     if (!mpesaCode) {
       toast({
         title: "Missing M-Pesa Code",
@@ -66,8 +70,29 @@ const STKPushModal = ({ isOpen, onClose, onSuccess, amount, accountReference }: 
       return;
     }
 
-    onSuccess(mpesaCode, phoneNumber);
-    handleClose();
+    try {
+      // Verify if the payment code exists and hasn't been used
+      const isValid = await authService.verifyMpesaPayment(mpesaCode, phoneNumber);
+      
+      if (!isValid) {
+        toast({
+          title: "Invalid Payment",
+          description: "The M-Pesa code is invalid or has already been used. Please check and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      onSuccess(mpesaCode, phoneNumber);
+      handleClose();
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      toast({
+        title: "Verification Failed",
+        description: error instanceof Error ? error.message : "Failed to verify payment. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleClose = () => {

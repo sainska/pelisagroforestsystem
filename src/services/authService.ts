@@ -24,6 +24,27 @@ export const authService = {
 
   async verifyMpesaPayment(mpesaCode: string, phoneNumber: string): Promise<boolean> {
     try {
+      // First check if the payment code has already been used
+      const { data: existingPayment, error: existingError } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('mpesa_code', mpesaCode)
+        .single();
+
+      if (existingError && existingError.code !== 'PGRST116') {
+        console.error('Error checking existing payment:', existingError);
+        return false;
+      }
+
+      // If payment exists, check if it belongs to the same phone number
+      if (existingPayment) {
+        if (existingPayment.phone_number !== phoneNumber) {
+          throw new Error('This M-Pesa code has already been used by another user.');
+        }
+        return true;
+      }
+
+      // If payment doesn't exist, verify with M-Pesa API (using RPC function)
       const { data, error } = await supabase.rpc('verify_mpesa_code_exists', {
         p_mpesa_code: mpesaCode,
         p_phone_number: phoneNumber
@@ -43,6 +64,12 @@ export const authService = {
 
   async initiateSTKPush(phoneNumber: string, amount: number, accountReference: string): Promise<any> {
     try {
+      // Validate phone number format
+      if (!phoneNumber.match(/^254[0-9]{9}$/)) {
+        throw new Error('Invalid phone number format. Use format: 254XXXXXXXXX');
+      }
+
+      // Call the RPC function
       const { data, error } = await supabase.rpc('initiate_mpesa_stk_push', {
         p_phone_number: phoneNumber,
         p_amount: amount,
@@ -51,10 +78,35 @@ export const authService = {
       
       if (error) {
         console.error('Error initiating STK push:', error);
-        throw error;
+        throw new Error(error.message);
+      }
+
+      // Check if the response is successful
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to initiate STK push');
+      }
+
+      // Create a pending payment record
+      const { error: paymentError } = await supabase
+        .from('stk_push_requests')
+        .update({
+          status: 'processing',
+          checkout_request_id: data.checkout_request_id,
+          merchant_request_id: data.merchant_request_id
+        })
+        .eq('id', data.checkout_request_id);
+
+      if (paymentError) {
+        console.error('Error updating payment record:', paymentError);
+        // Don't throw here, as the STK push was successful
       }
       
-      return data;
+      return {
+        success: true,
+        checkout_request_id: data.checkout_request_id,
+        merchant_request_id: data.merchant_request_id,
+        message: data.message
+      };
     } catch (error) {
       console.error('Error initiating STK push:', error);
       throw error;
@@ -280,18 +332,63 @@ export const authService = {
         throw new Error('Invalid M-Pesa payment code or phone number. Please check your payment details.');
       }
 
+      // Get current timestamp
+      const now = new Date().toISOString();
+
+      // Check if this was an STK push payment
+      const { data: stkRequest } = await supabase
+        .from('stk_push_requests')
+        .select('*')
+        .eq('phone_number', phoneNumber)
+        .eq('mpesa_receipt_number', mpesaCode)
+        .single();
+
       // Insert payment record into payments table
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('payments')
         .insert({
           user_id: userId,
           mpesa_code: mpesaCode,
           phone_number: phoneNumber,
           amount: 300.00,
-          status: 'Verified'
+          status: 'Verified',
+          created_at: now,
+          updated_at: now,
+          verified_at: now,
+          verified_by: 'system',
+          stk_request_id: stkRequest?.id // Link to STK request if it exists
         });
 
-      if (error) throw error;
+      if (insertError) {
+        console.error('Error inserting payment:', insertError);
+        if (insertError.code === '23505') { // Unique violation
+          throw new Error('This M-Pesa code has already been used. Please provide a different payment.');
+        }
+        throw insertError;
+      }
+
+      // If this was an STK push payment, update its status
+      if (stkRequest) {
+        await supabase
+          .from('stk_push_requests')
+          .update({
+            status: 'completed',
+            mpesa_receipt_number: mpesaCode,
+            updated_at: now
+          })
+          .eq('id', stkRequest.id);
+      }
+
+      // Update user profile to mark payment as verified
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ payment_verified: true })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error('Error updating profile payment status:', updateError);
+        throw updateError;
+      }
 
       toast({
         title: 'Payment verified',
