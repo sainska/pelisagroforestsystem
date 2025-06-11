@@ -1,3 +1,4 @@
+
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -5,6 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import Index from '@/pages/Index';
 import Dashboard from '@/pages/Dashboard';
 import AdminDashboard from '@/pages/AdminDashboard';
+import SystemAdminDashboard from '@/pages/SystemAdminDashboard';
 import NotFound from '@/pages/NotFound';
 import { authService } from '@/services/authService';
 import AdminProtectedRoute from '@/components/AdminProtectedRoute';
@@ -34,6 +36,11 @@ function App() {
           <Route path="/admin" element={
             <AdminProtectedRoute>
               <AdminDashboard />
+            </AdminProtectedRoute>
+          } />
+          <Route path="/system-admin" element={
+            <AdminProtectedRoute>
+              <SystemAdminDashboard />
             </AdminProtectedRoute>
           } />
           <Route path="/reset-password" element={<Index />} />

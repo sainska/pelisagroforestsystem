@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          metadata: Json | null
+          related_user_id: string | null
+          status: string | null
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          metadata?: Json | null
+          related_user_id?: string | null
+          status?: string | null
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          metadata?: Json | null
+          related_user_id?: string | null
+          status?: string | null
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       backup_history: {
         Row: {
           backup_date: string
@@ -231,6 +264,51 @@ export type Database = {
         }
         Relationships: []
       }
+      marketplace_listings: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          location: string
+          price: number
+          quantity: number
+          status: string
+          title: string
+          updated_at: string
+          vendor_id: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          location?: string
+          price: number
+          quantity?: number
+          status?: string
+          title: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          location?: string
+          price?: number
+          quantity?: number
+          status?: string
+          title?: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Relationships: []
+      }
       monitoring_records: {
         Row: {
           compliance_level: number
@@ -326,8 +404,10 @@ export type Database = {
           created_at: string
           id: string
           mpesa_code: string
+          payment_type: string | null
           phone_number: string
           status: string
+          stk_request_id: string | null
           updated_at: string
           user_id: string
           verified_at: string | null
@@ -338,8 +418,10 @@ export type Database = {
           created_at?: string
           id?: string
           mpesa_code: string
+          payment_type?: string | null
           phone_number: string
           status?: string
+          stk_request_id?: string | null
           updated_at?: string
           user_id: string
           verified_at?: string | null
@@ -350,8 +432,10 @@ export type Database = {
           created_at?: string
           id?: string
           mpesa_code?: string
+          payment_type?: string | null
           phone_number?: string
           status?: string
+          stk_request_id?: string | null
           updated_at?: string
           user_id?: string
           verified_at?: string | null
@@ -362,8 +446,14 @@ export type Database = {
       plot_applications: {
         Row: {
           applicant_id: string
+          application_score: number | null
           created_at: string
+          farm_group_id: string | null
+          farming_experience: string | null
+          has_equipment: boolean | null
           id: string
+          intended_use: string | null
+          location_preference: string | null
           notes: string | null
           plot_id: string | null
           preferred_size: number
@@ -372,17 +462,17 @@ export type Database = {
           reviewed_by: string | null
           status: Database["public"]["Enums"]["application_status"]
           updated_at: string
-          location_preference: string | null
-          farming_experience: string | null
-          intended_use: string | null
-          has_equipment: boolean
-          farm_group_id: string | null
-          application_score: number
         }
         Insert: {
           applicant_id: string
+          application_score?: number | null
           created_at?: string
+          farm_group_id?: string | null
+          farming_experience?: string | null
+          has_equipment?: boolean | null
           id?: string
+          intended_use?: string | null
+          location_preference?: string | null
           notes?: string | null
           plot_id?: string | null
           preferred_size: number
@@ -391,17 +481,17 @@ export type Database = {
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           updated_at?: string
-          location_preference?: string | null
-          farming_experience?: string | null
-          intended_use?: string | null
-          has_equipment?: boolean
-          farm_group_id?: string | null
-          application_score?: number
         }
         Update: {
           applicant_id?: string
+          application_score?: number | null
           created_at?: string
+          farm_group_id?: string | null
+          farming_experience?: string | null
+          has_equipment?: boolean | null
           id?: string
+          intended_use?: string | null
+          location_preference?: string | null
           notes?: string | null
           plot_id?: string | null
           preferred_size?: number
@@ -410,14 +500,15 @@ export type Database = {
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           updated_at?: string
-          location_preference?: string | null
-          farming_experience?: string | null
-          intended_use?: string | null
-          has_equipment?: boolean
-          farm_group_id?: string | null
-          application_score?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "plot_applications_farm_group_id_fkey"
+            columns: ["farm_group_id"]
+            isOneToOne: false
+            referencedRelation: "farm_groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "plot_applications_plot_id_fkey"
             columns: ["plot_id"]
@@ -557,8 +648,9 @@ export type Database = {
       }
       stk_push_requests: {
         Row: {
+          account_reference: string
           amount: number
-          checkout_request_id: string
+          checkout_request_id: string | null
           created_at: string | null
           id: string
           merchant_request_id: string | null
@@ -568,8 +660,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          account_reference: string
           amount: number
-          checkout_request_id: string
+          checkout_request_id?: string | null
           created_at?: string | null
           id?: string
           merchant_request_id?: string | null
@@ -579,8 +672,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          account_reference?: string
           amount?: number
-          checkout_request_id?: string
+          checkout_request_id?: string | null
           created_at?: string | null
           id?: string
           merchant_request_id?: string | null
@@ -679,23 +773,58 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      marketplace_listings_with_profiles: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          image_url: string | null
+          price: number | null
+          quantity: number | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          vendor_avatar: string | null
+          vendor_id: string | null
+          vendor_name: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      check_email_exists: {
+        Args: { check_email: string }
+        Returns: boolean
+      }
       check_national_id_exists: {
         Args: { p_national_id: string }
         Returns: boolean
+      }
+      generate_mpesa_password: {
+        Args: { p_timestamp: string }
+        Returns: string
+      }
+      get_mpesa_access_token: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_user_email_by_national_id: {
+        Args: { check_national_id: string }
+        Returns: string
       }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
       initiate_mpesa_stk_push: {
-        Args: {
-          p_phone_number: string
-          p_amount: number
-          p_account_reference: string
-        }
+        Args:
+          | {
+              p_phone_number: string
+              p_amount: number
+              p_account_reference: string
+            }
+          | { phone_number: string; amount: number }
         Returns: Json
       }
       verify_mpesa_code_exists: {
@@ -734,7 +863,10 @@ export type Database = {
         | "Other"
     }
     CompositeTypes: {
-      [_ in never]: never
+      net_header: {
+        field: string | null
+        value: string | null
+      }
     }
   }
 }
